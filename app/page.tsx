@@ -5,7 +5,7 @@ import { useLang } from "@/components/Language/LanguageProvider";
 import HeroSection, { Checks } from "@/components/sites/input";
 import InfoSection from "@/components/sites/info";
 import ResultTable, { TestResultRow } from "@/components/sites/result";
-import { normalizeUrl } from "@/utils/url";
+import Footer from "@/components/footer";
 
 export default function Home() {
   const { t } = useLang();
@@ -466,7 +466,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-base-100">
       <HeroSection
         urlsInput={urlsInput}
         setUrlsInput={setUrlsInput}
@@ -486,6 +486,7 @@ export default function Home() {
       )}
       
       <InfoSection />
+       <Footer />
     </main>
   );
 }
