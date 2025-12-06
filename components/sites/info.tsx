@@ -6,7 +6,7 @@ export default function InfoSection() {
   const { t } = useLang();
 
   return (
-    <section className="bg-white text-slate-900 py-12 md:py-32">
+    <section className="bg-base-100 text-slate-900 py-12 md:py-32">
       <div className="max-w-5xl mx-auto px-4 space-y-8">
         <div>
           <h2 className="text-xl md:text-2xl font-bold mb-2">
