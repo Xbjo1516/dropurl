@@ -1,38 +1,80 @@
-// ตัวอย่างโค้ดใน API route ที่บอทจะเรียก
+// /pages/api/discord-check.ts
+import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { summarizeWithAI } from "@/lib/ai";
 
-export async function POST(req: Request) {
+type Lang = "th" | "en";
+
+type Body = {
+  urls: string[];
+  discordUserId?: string | null;
+  rawInput?: string | null;
+  lang?: Lang;
+  source?: string;
+};
+
+type SuccessResponse = {
+  ok: true;
+  summary: string;
+};
+
+type ErrorResponse = {
+  ok: false;
+  error: string;
+};
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<SuccessResponse | ErrorResponse>
+) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
+  }
+
   try {
-    const body = await req.json();
     const {
       urls,
       discordUserId,
       rawInput,
       lang = "th",
       source = "discord",
-    } = body;
+    } = req.body as Body;
 
-    const { data: userRow, error: userErr } = await supabaseAdmin
-      .from("users")
-      .select("id")
-      .eq("discord_id", discordUserId)
-      .maybeSingle();
-
-    if (userErr) {
-      console.error("find user by discord_id error:", userErr);
+    if (!urls || !Array.isArray(urls) || urls.length === 0) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "urls is required (array)" });
     }
 
-    const userId = userRow?.id ?? null;
-    const has404 = false; 
+    // 1) หา user จาก discord_id (ถ้ามีส่งมา)
+    let userId: string | null = null;
+    if (discordUserId) {
+      const { data: userRow, error: userErr } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("discord_id", discordUserId)
+        .maybeSingle();
+
+      if (userErr) {
+        console.error("find user by discord_id error:", userErr);
+      }
+      userId = userRow?.id ?? null;
+    }
+
+    // 2) TODO: ต่อ logic ตรวจ 404 / DUP / SEO จริงของคุณทีหลัง
+    // ตอนนี้ให้เป็นค่ากลาง ๆ ไปก่อน
+    const has404 = false;
     const hasDuplicate = false;
     const hasSeoIssues = false;
 
+    // 3) เรียก AI สรุปผล
     const summary = await summarizeWithAI(
       { urls, has404, hasDuplicate, hasSeoIssues },
       lang
     );
 
+    // 4) บันทึกลง checks (ถ้ามี table นี้แล้ว)
     const { error: insertErr } = await supabaseAdmin.from("checks").insert({
       user_id: userId,
       source,
@@ -47,15 +89,9 @@ export async function POST(req: Request) {
       console.error("insert check failed:", insertErr);
     }
 
-    return new Response(
-      JSON.stringify({ ok: true, summary }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  } catch (e: any) {
+    return res.status(200).json({ ok: true, summary });
+  } catch (e) {
     console.error(e);
-    return new Response(
-      JSON.stringify({ error: "Internal error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return res.status(500).json({ ok: false, error: "Internal error" });
   }
 }

@@ -46,6 +46,13 @@ const en = {
     groupSchemaLinks: "Schema & Links",
     groupQuality: "Quality",
     groupOthers: "Others",
+
+    menuLabel: "Row menu",
+    selectVisible: "Select visible",
+    clearSelection: "Clear selection",
+    exportButton: "Export",
+    selectAll: "Select all",
+    duplicateProblemLabel: "Duplicate problem",
   },
   export: {
     title: "Export selected URLs",

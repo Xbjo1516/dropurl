@@ -251,7 +251,7 @@ export default function Home() {
               }
             };
 
-            problemFrames.forEach((pf) => collectFromList(pf.duplicates));
+            problemFrames.forEach((pf: { duplicates: string[]; }) => collectFromList(pf.duplicates));
             let hasIssue = domainMap.size > 0;
 
             let issueSummary = "-";
