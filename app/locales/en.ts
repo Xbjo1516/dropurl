@@ -81,6 +81,32 @@ const en = {
     seoDesc:
       "Basic SEO checks help ensure your URLs follow good structure, avoid issues, and remain optimized. DropURL highlights potential problems so you can keep your website performing well.",
   },
+  discord: {
+    helpTooltip: "Open Droppy chatbot / connect Discord",
+    title: "Connect DropURL with Discord",
+    description: "Configure integration so users can send URLs in Discord and DropURL will analyze and summarize with AI.",
+
+    loginRequired: "You have not connected your Discord account to DropURL",
+    loginInfo: "Please log in with Discord to enable Webhook / Bot Token setup and Discord bot integration.",
+    loginButton: "Login with Discord",
+
+    connectedAs: "Connected as",
+
+    webhookLabel: "Discord Webhook URL",
+    webhookDesc: "Used when you want DropURL to send results back directly to a Discord channel via Webhook.",
+
+    botTokenLabel: "Discord Bot Token (if using your own bot)",
+    botTokenDesc: "Needed if you want your bot to call DropURL's API and reply to users automatically.",
+
+    flowTitle: "Workflow Example",
+    flow1: "User types !check https://example.com in Discord",
+    flow2: "Bot calls /api/discord-check on DropURL",
+    flow3: "DropURL scans 404 / Duplicate / SEO and summarizes with AI",
+    flow4: "Bot sends summarized result back to Discord",
+
+    cancel: "Cancel",
+    save: "Save settings",
+  },
 };
 
 export default en;
