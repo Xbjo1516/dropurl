@@ -47,6 +47,13 @@ const th = {
     groupSchemaLinks: "Schema & Links",
     groupQuality: "Quality",
     groupOthers: "อื่น ๆ",
+
+    menuLabel: "เมนูของแถวนี้",
+    selectVisible: "เลือกแสดง",
+    clearSelection: "ล้างการเลือก",
+    exportButton: "ส่งออก",
+    selectAll: "เลือกทั้งหมด",
+    duplicateProblemLabel: "ปัญหาลิงก์ซ้ำ",
   },
   export: {
     title: "ส่งออกลิงก์ที่เลือก",
@@ -84,29 +91,29 @@ const th = {
   },
   discord: {
     helpTooltip: "เปิดแชทบอท Droppy / เชื่อม Discord",
-      title: "เชื่อม DropURL กับ Discord",
-      description: "ตั้งค่าการเชื่อมต่อระหว่างบอท Discord กับ DropURL เพื่อให้ผู้ใช้ส่งลิงก์ใน Discord แล้วรับผลสรุปจาก AI",
+    title: "เชื่อม DropURL กับ Discord",
+    description: "ตั้งค่าการเชื่อมต่อระหว่างบอท Discord กับ DropURL เพื่อให้ผู้ใช้ส่งลิงก์ใน Discord แล้วรับผลสรุปจาก AI",
 
-      loginRequired: "คุณยังไม่ได้เชื่อมบัญชี Discord เข้ากับ DropURL",
-      loginInfo: "กรุณาล็อกอินด้วย Discord ก่อน จากนั้นจึงจะสามารถตั้งค่า Webhook / Bot Token และใช้งานได้",
-      loginButton: "เข้าสู่ระบบด้วย Discord",
+    loginRequired: "คุณยังไม่ได้เชื่อมบัญชี Discord เข้ากับ DropURL",
+    loginInfo: "กรุณาล็อกอินด้วย Discord ก่อน จากนั้นจึงจะสามารถตั้งค่า Webhook / Bot Token และใช้งานได้",
+    loginButton: "เข้าสู่ระบบด้วย Discord",
 
-      connectedAs: "เชื่อมต่อแล้วในชื่อ",
+    connectedAs: "เชื่อมต่อแล้วในชื่อ",
 
-      webhookLabel: "Discord Webhook URL",
-      webhookDesc: "ใช้ในกรณีที่ต้องการให้ DropURL ส่งผลกลับไปที่ช่อง (channel) โดยตรงผ่าน Webhook",
+    webhookLabel: "Discord Webhook URL",
+    webhookDesc: "ใช้ในกรณีที่ต้องการให้ DropURL ส่งผลกลับไปที่ช่อง (channel) โดยตรงผ่าน Webhook",
 
-      botTokenLabel: "Discord Bot Token (ถ้าคุณมีบอทของตัวเอง)",
-      botTokenDesc: "ใช้ในกรณีที่ต้องการให้บอทเรียก API ของ DropURL และตอบกลับผู้ใช้ได้",
+    botTokenLabel: "Discord Bot Token (ถ้าคุณมีบอทของตัวเอง)",
+    botTokenDesc: "ใช้ในกรณีที่ต้องการให้บอทเรียก API ของ DropURL และตอบกลับผู้ใช้ได้",
 
-      flowTitle: "Flow การทำงาน (ตัวอย่าง)",
-      flow1: "ผู้ใช้พิมพ์ !check https://example.com ใน Discord",
-      flow2: "บอทเรียก API /api/discord-check ที่ DropURL",
-      flow3: "DropURL ตรวจ 404 / Duplicate / SEO และสรุปผลด้วย AI",
-      flow4: "บอทส่งข้อความสรุปกลับไปใน Discord",
+    flowTitle: "Flow การทำงาน (ตัวอย่าง)",
+    flow1: "ผู้ใช้พิมพ์ !check https://example.com ใน Discord",
+    flow2: "บอทเรียก API /api/discord-check ที่ DropURL",
+    flow3: "DropURL ตรวจ 404 / Duplicate / SEO และสรุปผลด้วย AI",
+    flow4: "บอทส่งข้อความสรุปกลับไปใน Discord",
 
-      cancel: "ยกเลิก",
-      save: "บันทึกการตั้งค่า",
+    cancel: "ยกเลิก",
+    save: "บันทึกการตั้งค่า",
   },
 };
 

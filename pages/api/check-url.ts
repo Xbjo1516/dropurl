@@ -37,7 +37,7 @@ export default async function handler(
         return {
           error: true,
           errorMessage: err?.message || String(err),
-          results: urls.map((url) => ({
+          results: urls!.map((url) => ({
             url,
             reachable: false,
             error: err?.message || "Unknown error",
