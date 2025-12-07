@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLang } from "@/components/Language/LanguageProvider";
-import HeroSection, { Checks } from "@/components/sites/input";
+import HeroSection, { Checks } from "../components/sites/input";
 import InfoSection from "@/components/sites/info";
 import ResultTable, { TestResultRow } from "@/components/sites/result";
 import Footer from "@/components/footer";
@@ -22,7 +22,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<TestResultRow[]>([]);
 
-  // state เอาไว้เปิด/ปิด Modal ช่วยเหลือ Discord
   const [showHelp, setShowHelp] = useState(false);
 
   const parseUrls = (text: string): string[] =>
@@ -95,17 +94,20 @@ export default function Home() {
       const dupResult = data.result?.duplicate;
       const seoResult = data.result?.seo;
 
-      if (
-        checks.seo &&
-        seoResult?.results &&
-        Array.isArray(seoResult.results) &&
-        seoResult.results.some((it: any) => it.reachable === false)
-      ) {
-        setError(t.home.errorInvalid);
-        setRows([]);
-        setLoading(false);
-        return;
-      }
+      // ❌ บล็อกนี้เป็นตัวทำให้โดนฟ้อง "ลิงก์ไม่ถูกต้อง" ตลอด
+      // ถอดออก / คอมเมนต์ทิ้งไป
+      //
+      // if (
+      //   checks.seo &&
+      //   seoResult?.results &&
+      //   Array.isArray(seoResult.results) &&
+      //   seoResult.results.some((it: any) => it.reachable === false)
+      // ) {
+      //   setError(t.home.errorInvalid);
+      //   setRows([]);
+      //   setLoading(false);
+      //   return;
+      // }
 
       // ========== 1) 404 ==========
       if (
@@ -196,11 +198,10 @@ export default function Home() {
                   `unknown-${index}`,
                 testType: "DUPLICATE",
                 hasIssue: true,
-                issueSummary: `Server reported error: ${
-                  item.errorMessage ||
+                issueSummary: `Server reported error: ${item.errorMessage ||
                   item.error ||
                   JSON.stringify(item._error)
-                }`,
+                  }`,
               });
               return;
             }
@@ -251,7 +252,9 @@ export default function Home() {
               }
             };
 
-            problemFrames.forEach((pf: { duplicates: string[]; }) => collectFromList(pf.duplicates));
+            problemFrames.forEach((pf: { duplicates: string[] }) =>
+              collectFromList(pf.duplicates)
+            );
             let hasIssue = domainMap.size > 0;
 
             let issueSummary = "-";
@@ -294,9 +297,8 @@ export default function Home() {
                 `unknown-${index}`,
               testType: "DUPLICATE",
               hasIssue: false,
-              issueSummary: `Could not parse duplicate result from server. (${
-                err?.message ?? String(err)
-              })`,
+              issueSummary: `Could not parse duplicate result from server. (${err?.message ?? String(err)
+                })`,
             });
           }
         });
@@ -348,8 +350,7 @@ export default function Home() {
             `[Indexing] canonical: ${canonical.status || "⛔ missing"}`
           );
           detailLines.push(
-            `[Indexing] html lang: ${
-              lang.htmlLang ? `✅ ${lang.htmlLang}` : "⛔ Not found"
+            `[Indexing] html lang: ${lang.htmlLang ? `✅ ${lang.htmlLang}` : "⛔ Not found"
             }`
           );
           detailLines.push(
@@ -360,15 +361,13 @@ export default function Home() {
           );
 
           detailLines.push(
-            `[Structure] H1: ${
-              headings.h1Count > 0
-                ? `✅ ${headings.h1Count} H1`
-                : "⛔ No H1 on page"
+            `[Structure] H1: ${headings.h1Count > 0
+              ? `✅ ${headings.h1Count} H1`
+              : "⛔ No H1 on page"
             }`
           );
           detailLines.push(
-            `[Structure] Heading tags: H1=${headings.h1Count || 0}, H2=${
-              headings.h2Count || 0
+            `[Structure] Heading tags: H1=${headings.h1Count || 0}, H2=${headings.h2Count || 0
             }, H3=${headings.h3Count || 0}`
           );
 
@@ -394,58 +393,49 @@ export default function Home() {
             `[Social] og:title: ${og["og:title"] || "⛔ Not found"}`
           );
           detailLines.push(
-            `[Social] og:description: ${
-              og["og:description"] || "⛔ Not found"
+            `[Social] og:description: ${og["og:description"] || "⛔ Not found"
             }`
           );
           detailLines.push(
             `[Social] og:image: ${og["og:image"] || "⛔ Not found"}`
           );
           detailLines.push(
-            `[Social] twitter:card: ${
-              tw["twitter:card"] || "⛔ Not found"
+            `[Social] twitter:card: ${tw["twitter:card"] || "⛔ Not found"
             }`
           );
           detailLines.push(
-            `[Social] twitter:title: ${
-              tw["twitter:title"] || "⛔ Not found"
+            `[Social] twitter:title: ${tw["twitter:title"] || "⛔ Not found"
             }`
           );
 
           detailLines.push(
-            `[Schema & Links] schema types: ${
-              schema.types && schema.types.length
-                ? `✅ ${schema.types.join(", ")}`
-                : "⛔ Not found"
+            `[Schema & Links] schema types: ${schema.types && schema.types.length
+              ? `✅ ${schema.types.join(", ")}`
+              : "⛔ Not found"
             }`
           );
           detailLines.push(
-            `[Schema & Links] links: total ${links.total || 0} (internal: ${
-              links.internal || 0
+            `[Schema & Links] links: total ${links.total || 0} (internal: ${links.internal || 0
             }, external: ${links.external || 0})`
           );
 
           if (h) {
             if (typeof h.titleLength === "number") {
               detailLines.push(
-                `[Quality] title length: ${
-                  h.titleLength
-                } characters (${
-                  h.titleLengthOk
-                    ? "✅ In recommended range"
-                    : "⛔ Should be adjusted"
+                `[Quality] title length: ${h.titleLength
+                } characters (${h.titleLengthOk
+                  ? "✅ In recommended range"
+                  : "⛔ Should be adjusted"
                 })`
               );
               if (!h.titleLengthOk) hasIssue = true;
             }
             if (typeof h.descriptionLength === "number") {
               detailLines.push(
-                `[Quality] description length: ${
-                  h.descriptionLength
-                } characters (${
-                  h.descriptionLengthOk
-                    ? "✅ In recommended range"
-                    : "⛔ Should be adjusted"
+                `[Quality] description length: ${h.descriptionLength
+                } characters (${h.descriptionLengthOk
+                  ? "✅ In recommended range"
+                  : "⛔ Should be adjusted"
                 })`
               );
               if (!h.descriptionLengthOk) hasIssue = true;
@@ -456,18 +446,15 @@ export default function Home() {
             if (!h.hasH1 || h.multipleH1) hasIssue = true;
 
             detailLines.push(
-              `[Quality] Open Graph: ${
-                h.hasOpenGraph ? "✅ present" : "⛔ missing"
+              `[Quality] Open Graph: ${h.hasOpenGraph ? "✅ present" : "⛔ missing"
               }`
             );
             detailLines.push(
-              `[Quality] Twitter Card: ${
-                h.hasTwitterCard ? "✅ present" : "⛔ missing"
+              `[Quality] Twitter Card: ${h.hasTwitterCard ? "✅ present" : "⛔ missing"
               }`
             );
             detailLines.push(
-              `[Quality] Structured Data (Schema): ${
-                h.hasSchema ? "✅ present" : "⛔ missing"
+              `[Quality] Structured Data (Schema): ${h.hasSchema ? "✅ present" : "⛔ missing"
               }`
             );
           }
@@ -515,10 +502,7 @@ export default function Home() {
       <InfoSection />
       <Footer />
 
-      {/* ปุ่มช่วยเหลือ Discord ลอยมุมขวาล่าง */}
       <DiscordHelpButton onClick={() => setShowHelp(true)} />
-
-      {/* Modal ช่วยเหลือ Discord */}
       <DiscordHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
     </main>
   );

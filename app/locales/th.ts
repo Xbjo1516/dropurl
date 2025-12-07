@@ -53,7 +53,7 @@ const th = {
     clearSelection: "ล้างการเลือก",
     exportButton: "ส่งออก",
     selectAll: "เลือกทั้งหมด",
-    duplicateProblemLabel: "ปัญหาลิงก์ซ้ำ",
+    duplicateProblemLabel: "Duplicate problem",
   },
   export: {
     title: "ส่งออกลิงก์ที่เลือก",
