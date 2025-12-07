@@ -1,7 +1,10 @@
 // /components/Auth/LogoutButton.tsx
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+
+const supabase = getSupabaseClient();
+
 
 export function LogoutButton() {
   const handleLogout = async () => {

@@ -1,5 +1,8 @@
 // /lib/history.ts
-import { supabase } from "./supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+
+const supabase = getSupabaseClient();
+
 
 type CheckMeta = {
   has404: boolean;

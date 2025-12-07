@@ -1,7 +1,10 @@
 // /lib/userProfile.ts
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+
+const supabase = getSupabaseClient();
+
 
 export async function syncCurrentUserProfile() {
   const { data, error } = await supabase.auth.getUser();
