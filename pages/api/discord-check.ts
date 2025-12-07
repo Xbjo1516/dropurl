@@ -5,13 +5,13 @@ import { summarizeWithAI } from "@/lib/ai";
 
 type Lang = "th" | "en";
 
-type Body = {
+interface Body {
   urls: string[];
   discordUserId?: string | null;
   rawInput?: string | null;
   lang?: Lang;
   source?: string;
-};
+}
 
 type SuccessResponse = {
   ok: true;
@@ -47,7 +47,7 @@ export default async function handler(
         .json({ ok: false, error: "urls is required (array)" });
     }
 
-    // 1) หา user จาก discord_id (ถ้ามีส่งมา)
+    // หา user โดย discord_id ถ้ามีส่งมา
     let userId: string | null = null;
     if (discordUserId) {
       const { data: userRow, error: userErr } = await supabaseAdmin
@@ -62,19 +62,18 @@ export default async function handler(
       userId = userRow?.id ?? null;
     }
 
-    // 2) TODO: ต่อ logic ตรวจ 404 / DUP / SEO จริงของคุณทีหลัง
-    // ตอนนี้ให้เป็นค่ากลาง ๆ ไปก่อน
+    // TODO: ต่อกับผล 404 / DUP / SEO จริงภายหลัง
     const has404 = false;
     const hasDuplicate = false;
     const hasSeoIssues = false;
 
-    // 3) เรียก AI สรุปผล
+    // สรุปด้วย AI
     const summary = await summarizeWithAI(
       { urls, has404, hasDuplicate, hasSeoIssues },
       lang
     );
 
-    // 4) บันทึกลง checks (ถ้ามี table นี้แล้ว)
+    // บันทึกลง checks (ถ้ามีตารางนี้อยู่แล้ว)
     const { error: insertErr } = await supabaseAdmin.from("checks").insert({
       user_id: userId,
       source,
