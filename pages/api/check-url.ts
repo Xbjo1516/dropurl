@@ -22,7 +22,7 @@ type Check404Result = {
   results: Check404Item[];
 };
 
-// เช็ค 404 แบบเบา ใช้ fetch (รองรับ Vercel)
+// ---------- 404 แบบเบา ใช้ fetch ตรง (fallback เวลาไม่มี WORKER_URL) ----------
 async function check404Simple(urls: string[]): Promise<Check404Result> {
   const results: Check404Item[] = [];
 
@@ -33,9 +33,12 @@ async function check404Simple(urls: string[]): Promise<Check404Result> {
 
     try {
       let res = await fetch(url, { method: "HEAD" });
+
+      // ถ้าเว็บไม่รองรับ HEAD → ลอง GET แทน
       if (!res.ok && res.status === 405) {
         res = await fetch(url, { method: "GET" });
       }
+
       pageStatus = res.status;
     } catch (e: any) {
       error = e?.message || String(e);
@@ -53,6 +56,7 @@ async function check404Simple(urls: string[]): Promise<Check404Result> {
   return { error: false, results };
 }
 
+// ---------- main handler ----------
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -75,14 +79,7 @@ export default async function handler(
     });
   }
 
-  // normalize "all"
-  const normalizedChecks = {
-    check404: checks?.all || checks?.check404,
-    duplicate: checks?.all || checks?.duplicate,
-    seo: checks?.all || checks?.seo,
-  };
-
-  // normalize URLs
+  // normalize URLs (เติม https:// ถ้ายังไม่มี)
   const normalizedUrls = urls.map((u) => {
     const s = String(u || "").trim();
     if (!s) return s;
@@ -90,6 +87,64 @@ export default async function handler(
     return `https://${s}`;
   });
 
+  // normalize checks (all = true → เปิดทุกเทส)
+  const normalizedChecks: Checks = {
+    all: checks?.all,
+    check404: checks?.all || checks?.check404,
+    duplicate: checks?.all || checks?.duplicate,
+    seo: checks?.all || checks?.seo,
+  };
+
+  const WORKER_URL = process.env.DROPURL_WORKER_URL;
+
+  // ---------- โหมด 1: ถ้ามี WORKER_URL → ใช้ Railway worker ----------
+  if (WORKER_URL) {
+    try {
+      console.log("WORKER_URL =", WORKER_URL);
+      const upstream = await fetch(`${WORKER_URL}/run-checks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          urls: normalizedUrls,
+          checks: normalizedChecks,
+        }),
+      });
+
+      const status = upstream.status;
+
+      if (!upstream.ok) {
+        let body: any = null;
+        try {
+          body = await upstream.json();
+        } catch {
+          /* ignore */
+        }
+
+        // ส่ง status เดิมของ worker กลับไปเลย จะได้ไม่งงว่าเป็น 502 ทั้งหมด
+        return res.status(status || 502).json({
+          error: true,
+          errorMessage:
+            body?.errorMessage ||
+            `Worker responded with status ${status}`,
+          workerStatus: status,
+          workerBody: body ?? null,
+        });
+      }
+
+      const data = await upstream.json();
+      // worker ส่ง { error, result } → ส่งต่อให้ frontend
+      return res.status(200).json(data);
+    } catch (err: any) {
+      console.error("check-url proxy error:", err);
+      return res.status(500).json({
+        error: true,
+        errorMessage: "Failed to contact worker.",
+        detail: String(err),
+      });
+    }
+  }
+
+  // ---------- โหมด 2: ถ้าไม่มี WORKER_URL → fallback 404 เบา ๆ ----------
   try {
     const result: any = {};
 
@@ -98,7 +153,7 @@ export default async function handler(
       result.check404 = await check404Simple(normalizedUrls);
     }
 
-    // 2) DUPLICATE — ยังไม่รองรับ Vercel
+    // 2) DUPLICATE (ยังไม่รองรับใน fallback)
     if (normalizedChecks.duplicate) {
       result.duplicate = {
         error: true,
@@ -108,7 +163,7 @@ export default async function handler(
       };
     }
 
-    // 3) SEO — ยังไม่รองรับ Vercel
+    // 3) SEO (ยังไม่รองรับใน fallback)
     if (normalizedChecks.seo) {
       result.seo = {
         error: true,
