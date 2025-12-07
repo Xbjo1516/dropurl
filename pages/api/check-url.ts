@@ -1,8 +1,57 @@
 // /pages/api/check-url.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { check404 } from "../../test/404";
-import { checkDuplicate } from "../../test/duplicate";
-import { checkSeo } from "../../test/read-elements";
+
+type Checks = {
+  all?: boolean;
+  check404?: boolean;
+  duplicate?: boolean;
+  seo?: boolean;
+};
+
+type Check404Item = {
+  url: string;
+  pageStatus: number | null;
+  iframe404s: any[];
+  assetFailures: any[];
+  error?: string;
+};
+
+type Check404Result = {
+  error: boolean;
+  errorMessage?: string;
+  results: Check404Item[];
+};
+
+// เช็ค 404 แบบเบา ใช้ fetch (รองรับ Vercel)
+async function check404Simple(urls: string[]): Promise<Check404Result> {
+  const results: Check404Item[] = [];
+
+  for (const raw of urls) {
+    const url = String(raw || "").trim();
+    let pageStatus: number | null = null;
+    let error: string | undefined;
+
+    try {
+      let res = await fetch(url, { method: "HEAD" });
+      if (!res.ok && res.status === 405) {
+        res = await fetch(url, { method: "GET" });
+      }
+      pageStatus = res.status;
+    } catch (e: any) {
+      error = e?.message || String(e);
+    }
+
+    results.push({
+      url,
+      pageStatus,
+      iframe404s: [],
+      assetFailures: [],
+      ...(error ? { error } : {}),
+    });
+  }
+
+  return { error: false, results };
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,7 +65,7 @@ export default async function handler(
 
   const { urls, checks } = req.body as {
     urls?: string[];
-    checks?: { check404?: boolean; duplicate?: boolean; seo?: boolean };
+    checks?: Checks;
   };
 
   if (!urls || !Array.isArray(urls) || urls.length === 0) {
@@ -26,134 +75,47 @@ export default async function handler(
     });
   }
 
+  // normalize "all"
+  const normalizedChecks = {
+    check404: checks?.all || checks?.check404,
+    duplicate: checks?.all || checks?.duplicate,
+    seo: checks?.all || checks?.seo,
+  };
+
+  // normalize URLs
+  const normalizedUrls = urls.map((u) => {
+    const s = String(u || "").trim();
+    if (!s) return s;
+    if (s.startsWith("http://") || s.startsWith("https://")) return s;
+    return `https://${s}`;
+  });
+
   try {
     const result: any = {};
 
-    async function safeRun(label: string, fn: () => Promise<any>) {
-      try {
-        return await fn();
-      } catch (err: any) {
-        console.error(`[${label}] failed:`, err);
-
-        // Friendly message for the user (short & clean)
-        const friendlyMessage =
-          label === "duplicate"
-            ? "Duplicate scanning is currently unavailable in this version."
-            : label === "seo"
-              ? "SEO analysis is currently unavailable in this version."
-              : "An internal server error occurred.";
-
-        return {
-          error: true,
-          errorMessage: friendlyMessage,        // ← user-facing short message
-          rawError: err?.message || String(err), // ← internal actual error
-          results: urls!.map((url) => ({
-            url,
-            reachable: false,
-            error: friendlyMessage,
-          })),
-        };
-      }
+    // 1) 404
+    if (normalizedChecks.check404) {
+      result.check404 = await check404Simple(normalizedUrls);
     }
 
-    // 404
-    if (checks?.check404) {
-      result.check404 = await safeRun("404", () => check404(urls));
+    // 2) DUPLICATE — ยังไม่รองรับ Vercel
+    if (normalizedChecks.duplicate) {
+      result.duplicate = {
+        error: true,
+        errorMessage:
+          "Duplicate scanning is not supported in this environment.",
+        results: [],
+      };
     }
 
-    // DUPLICATE
-    if (checks?.duplicate) {
-      result.duplicate = await safeRun("duplicate", () => checkDuplicate(urls));
-
-      try {
-        console.log(
-          "DEBUG duplicate raw result:",
-          JSON.stringify(result.duplicate, null, 2)
-        );
-      } catch (e) {
-        console.log(
-          "DEBUG duplicate raw result (stringify failed):",
-          result.duplicate
-        );
-      }
-
-      try {
-        const dupRes = result.duplicate;
-        const items =
-          dupRes?.results && Array.isArray(dupRes.results)
-            ? dupRes.results
-            : [];
-
-        const detectedInternal = items.some((it: any) => {
-          if (Array.isArray(it.frames) && it.frames.length > 0) return true;
-          if (Array.isArray(it.duplicates) && it.duplicates.length > 0)
-            return true;
-          if (it?.frames && Object.keys(it.frames).length > 0) return true;
-          return false;
-        });
-
-        const hashToUrls: Record<string, Set<string>> = {};
-
-        try {
-          for (const item of items) {
-            if (Array.isArray(item.frames)) {
-              for (const f of item.frames) {
-                if (f && f.hash) {
-                  if (!hashToUrls[f.hash]) hashToUrls[f.hash] = new Set();
-                  if (item.url) hashToUrls[f.hash].add(item.url);
-                  if (Array.isArray(f.duplicates)) {
-                    for (const d of f.duplicates) {
-                      if (d) hashToUrls[f.hash].add(String(d));
-                    }
-                  }
-                }
-              }
-            }
-
-            if (item.debug && Array.isArray(item.debug.sampleGroups)) {
-              for (const sg of item.debug.sampleGroups) {
-                if (sg && sg.hash && Array.isArray(sg.urls)) {
-                  if (!hashToUrls[sg.hash]) hashToUrls[sg.hash] = new Set();
-                  sg.urls.forEach((u: string) => {
-                    if (u) hashToUrls[sg.hash].add(u);
-                  });
-                  if (item.url) hashToUrls[sg.hash].add(item.url);
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.log(
-            "Failed building hash->urls map (non-fatal in API):",
-            e
-          );
-        }
-
-        const crossPageDuplicates: { hash: string; urls: string[] }[] = [];
-        for (const [h, s] of Object.entries(hashToUrls)) {
-          const arr = Array.from(s);
-          if (arr.length > 1) {
-            crossPageDuplicates.push({ hash: h, urls: arr });
-          }
-        }
-
-        const detected = detectedInternal || crossPageDuplicates.length > 0;
-
-        result.duplicateSummary = {
-          detected,
-          itemsCount: items.length,
-          crossPageDuplicates,
-        };
-
-        console.log("DEBUG duplicate summary:", result.duplicateSummary);
-      } catch (e) {
-        console.log("DEBUG duplicate summary failed:", e);
-      }
-    }
-
-    // SEO
-    if (checks?.seo) {
-      result.seo = await safeRun("seo", () => checkSeo(urls));
+    // 3) SEO — ยังไม่รองรับ Vercel
+    if (normalizedChecks.seo) {
+      result.seo = {
+        error: true,
+        errorMessage:
+          "SEO analysis is not supported in this environment.",
+        results: [],
+      };
     }
 
     return res.status(200).json({ error: false, result });
