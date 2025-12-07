@@ -22,6 +22,20 @@ type Check404Result = {
   results: Check404Item[];
 };
 
+type WorkerResult = {
+  error: boolean;
+  result: {
+    check404?: Check404Result;
+    duplicate?: any;
+    seo?: any;
+    duplicateSummary?: {
+      detected: boolean;
+      itemsCount: number;
+      crossPageDuplicates: { hash: string; urls: string[] }[];
+    };
+  };
+};
+
 // ---------- 404 แบบเบา ใช้ fetch ตรง (fallback เวลาไม่มี WORKER_URL) ----------
 async function check404Simple(urls: string[]): Promise<Check404Result> {
   const results: Check404Item[] = [];
@@ -120,19 +134,18 @@ export default async function handler(
           /* ignore */
         }
 
-        // ส่ง status เดิมของ worker กลับไปเลย จะได้ไม่งงว่าเป็น 502 ทั้งหมด
+        // ส่ง status เดิมของ worker กลับไปเลย จะได้รู้ว่า worker 4xx/5xx
         return res.status(status || 502).json({
           error: true,
           errorMessage:
-            body?.errorMessage ||
-            `Worker responded with status ${status}`,
+            body?.errorMessage || `Worker responded with status ${status}`,
           workerStatus: status,
           workerBody: body ?? null,
         });
       }
 
-      const data = await upstream.json();
-      // worker ส่ง { error, result } → ส่งต่อให้ frontend
+      const data: WorkerResult = (await upstream.json()) as any;
+      // worker ส่ง { error, result } → ส่งต่อให้ frontend / Discord เลย
       return res.status(200).json(data);
     } catch (err: any) {
       console.error("check-url proxy error:", err);
@@ -146,14 +159,14 @@ export default async function handler(
 
   // ---------- โหมด 2: ถ้าไม่มี WORKER_URL → fallback 404 เบา ๆ ----------
   try {
-    const result: any = {};
+    const result: WorkerResult["result"] = {};
 
     // 1) 404
     if (normalizedChecks.check404) {
       result.check404 = await check404Simple(normalizedUrls);
     }
 
-    // 2) DUPLICATE (ยังไม่รองรับใน fallback)
+    // 2) DUPLICATE (ยังไม่รองรับใน fallback แต่ให้โครงสร้างเหมือน worker)
     if (normalizedChecks.duplicate) {
       result.duplicate = {
         error: true,
@@ -161,14 +174,19 @@ export default async function handler(
           "Duplicate scanning is not supported in this environment.",
         results: [],
       };
+
+      result.duplicateSummary = {
+        detected: false,
+        itemsCount: 0,
+        crossPageDuplicates: [],
+      };
     }
 
-    // 3) SEO (ยังไม่รองรับใน fallback)
+    // 3) SEO (ยังไม่รองรับใน fallback แต่ให้โครงสร้างเหมือน worker)
     if (normalizedChecks.seo) {
       result.seo = {
         error: true,
-        errorMessage:
-          "SEO analysis is not supported in this environment.",
+        errorMessage: "SEO analysis is not supported in this environment.",
         results: [],
       };
     }
