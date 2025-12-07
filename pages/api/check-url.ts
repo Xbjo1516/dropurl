@@ -34,13 +34,23 @@ export default async function handler(
         return await fn();
       } catch (err: any) {
         console.error(`[${label}] failed:`, err);
+
+        // Friendly message for the user (short & clean)
+        const friendlyMessage =
+          label === "duplicate"
+            ? "Duplicate scanning is currently unavailable in this version."
+            : label === "seo"
+              ? "SEO analysis is currently unavailable in this version."
+              : "An internal server error occurred.";
+
         return {
           error: true,
-          errorMessage: err?.message || String(err),
+          errorMessage: friendlyMessage,        // ← user-facing short message
+          rawError: err?.message || String(err), // ← internal actual error
           results: urls!.map((url) => ({
             url,
             reachable: false,
-            error: err?.message || "Unknown error",
+            error: friendlyMessage,
           })),
         };
       }
