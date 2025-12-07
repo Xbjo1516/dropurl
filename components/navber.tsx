@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { LanguageSwitcher } from "./Language/LanguageSwitcher";
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 import { syncCurrentUserProfile } from "@/lib/userProfile";
+
+const supabase = getSupabaseClient();
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);

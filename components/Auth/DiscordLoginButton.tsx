@@ -1,6 +1,9 @@
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+
+const supabase = getSupabaseClient();
+
 
 export function DiscordLoginButton() {
   const handleLogin = async () => {
