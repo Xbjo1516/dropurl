@@ -23,7 +23,7 @@ type SupabaseUser = {
 // อ่าน invite URL จาก env (ฝั่ง client ต้องเป็น NEXT_PUBLIC_*)
 const DISCORD_INVITE_URL =
   process.env.NEXT_PUBLIC_DISCORD_BOT_INVITE_URL ||
-  "https://discord.com/oauth2/authorize";
+  "https://discord.com/oauth2/authorize?client_id=1445259432425685105&permissions=68608&integration_type=0&scope=bot";
 
 export function DiscordHelpModal({ open, onClose }: DiscordHelpModalProps) {
   const { t, lang } = useLang();
