@@ -10,11 +10,13 @@ export type TestResultRow = {
   testType: string;
   hasIssue: boolean;
   issueSummary: string;
+  
+  depth?: number;
 };
 
 type ExportDialogProps = {
-  rows: TestResultRow[]; 
-  selectedIds: string[]; 
+  rows: TestResultRow[];
+  selectedIds: string[];
   triggerLabel?: string;
   pageSize?: number;
 };
@@ -72,7 +74,7 @@ export default function ExportDialog({
     if (!selectedRows.length) return;
     const exportRows = [...selectedRows].sort((a, b) => {
       if (a.hasIssue !== b.hasIssue) {
-        return a.hasIssue ? -1 : 1; 
+        return a.hasIssue ? -1 : 1;
       }
       if (a.testType !== b.testType) {
         return a.testType.localeCompare(b.testType);
@@ -159,7 +161,7 @@ export default function ExportDialog({
       aria-label={t.export?.title ?? "Export dialog"}
     >
       <div className="absolute inset-0 bg-black/50" />
-      
+
       <div
         className="relative bg-base-100 rounded-lg shadow-xl w-full max-w-xl sm:max-w-3xl overflow-auto"
         onClick={(e) => e.stopPropagation()}
