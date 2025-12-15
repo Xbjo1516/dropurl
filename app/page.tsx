@@ -1,16 +1,24 @@
 "use client";
 
 import { useState } from "react";
+
 import { useLang } from "@/components/Language/LanguageProvider";
 import HeroSection, { Checks } from "../components/sites/input";
 import InfoSection from "@/components/sites/info";
 import ResultTable, { TestResultRow } from "@/components/sites/result";
 import Footer from "@/components/footer";
+import CrawlTree from "@/components/sites/CrawlTree";
+import type { CrawlResultItem } from "@/types/crawl";
+import { buildCrawlTree } from "@/utils/buildCrawlTree";
 import { DiscordHelpButton } from "@/components/BT/DiscordHelpButton";
 import { DiscordHelpModal } from "@/components/modal/DiscordHelpModal";
 
+type Mode = "single" | "crawl";
+
 export default function Home() {
   const { t } = useLang();
+
+  const [mode, setMode] = useState<Mode>("single");
   const [urlsInput, setUrlsInput] = useState("");
   const [checks, setChecks] = useState<Checks>({
     all: true,
@@ -21,8 +29,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<TestResultRow[]>([]);
-
+  const [crawlResults, setCrawlResults] = useState<CrawlResultItem[]>([]);
   const [showHelp, setShowHelp] = useState(false);
+  const crawlTree = buildCrawlTree(crawlResults);
 
   const parseUrls = (text: string): string[] =>
     text
@@ -30,7 +39,13 @@ export default function Home() {
       .map((u) => u.trim())
       .filter(Boolean);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    options?: {
+      maxDepth: number;
+      sameDomainOnly: boolean;
+    }
+  ) => {
     e.preventDefault();
 
     const urls = parseUrls(urlsInput);
@@ -58,6 +73,33 @@ export default function Home() {
     setError(null);
     setLoading(true);
     setRows([]);
+    setCrawlResults([]);
+
+    if (mode === "crawl" && options) {
+      const res = await fetch("/api/crawl-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: urls[0],
+          maxDepth: options.maxDepth,
+          sameDomainOnly: options.sameDomainOnly,
+          checks,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data?.error) {
+        setError(data?.errorMessage || t.home.errorOther);
+        setLoading(false);
+        return;
+      }
+
+      // ❗ ยังไม่ map เป็น table
+      setCrawlResults(data.results || []);
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/check-url", {
@@ -481,6 +523,21 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-base-100">
+      <div className="flex justify-center gap-4 py-4">
+        <button
+          className={`btn btn-sm ${mode === "single" ? "btn-primary" : ""}`}
+          onClick={() => setMode("single")}
+        >
+          Single URL
+        </button>
+        <button
+          className={`btn btn-sm ${mode === "crawl" ? "btn-primary" : ""}`}
+          onClick={() => setMode("crawl")}
+        >
+          Site Crawl
+        </button>
+      </div>
+
       <HeroSection
         urlsInput={urlsInput}
         setUrlsInput={setUrlsInput}
@@ -495,6 +552,18 @@ export default function Home() {
         <div className="w-full max-w-5xl mx-auto px-4 py-12">
           <div className="rounded-2xl shadow-xl border border-slate-200 bg-white p-6">
             <ResultTable rows={rows} />
+          </div>
+        </div>
+      )}
+
+      {mode === "crawl" && crawlTree && (
+        <div className="w-full max-w-5xl mx-auto px-4 py-12">
+          <div className="rounded-2xl shadow-xl border border-slate-200 bg-white p-6">
+            <h2 className="font-bold mb-4">
+              Crawl result ({crawlResults.length} pages)
+            </h2>
+
+            <CrawlTree nodes={[crawlTree]} />
           </div>
         </div>
       )}
