@@ -1,9 +1,76 @@
 // /pages/api/check-url.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { check404 } from "../../test/404";
-import { checkDuplicate } from "../../test/duplicate";
-import { checkSeo } from "../../test/read-elements";
 
+type Checks = {
+  all?: boolean;
+  check404?: boolean;
+  duplicate?: boolean;
+  seo?: boolean;
+};
+
+type Check404Item = {
+  url: string;
+  pageStatus: number | null;
+  iframe404s: any[];
+  assetFailures: any[];
+  error?: string;
+};
+
+type Check404Result = {
+  error: boolean;
+  errorMessage?: string;
+  results: Check404Item[];
+};
+
+type WorkerResult = {
+  error: boolean;
+  result: {
+    check404?: Check404Result;
+    duplicate?: any;
+    seo?: any;
+    duplicateSummary?: {
+      detected: boolean;
+      itemsCount: number;
+      crossPageDuplicates: { hash: string; urls: string[] }[];
+    };
+  };
+};
+
+// ---------- 404 แบบเบา ใช้ fetch ตรง (fallback เวลาไม่มี WORKER_URL) ----------
+async function check404Simple(urls: string[]): Promise<Check404Result> {
+  const results: Check404Item[] = [];
+
+  for (const raw of urls) {
+    const url = String(raw || "").trim();
+    let pageStatus: number | null = null;
+    let error: string | undefined;
+
+    try {
+      let res = await fetch(url, { method: "HEAD" });
+
+      // ถ้าเว็บไม่รองรับ HEAD → ลอง GET แทน
+      if (!res.ok && res.status === 405) {
+        res = await fetch(url, { method: "GET" });
+      }
+
+      pageStatus = res.status;
+    } catch (e: any) {
+      error = e?.message || String(e);
+    }
+
+    results.push({
+      url,
+      pageStatus,
+      iframe404s: [],
+      assetFailures: [],
+      ...(error ? { error } : {}),
+    });
+  }
+
+  return { error: false, results };
+}
+
+// ---------- main handler ----------
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -16,7 +83,7 @@ export default async function handler(
 
   const { urls, checks } = req.body as {
     urls?: string[];
-    checks?: { check404?: boolean; duplicate?: boolean; seo?: boolean };
+    checks?: Checks;
   };
 
   if (!urls || !Array.isArray(urls) || urls.length === 0) {
@@ -26,124 +93,102 @@ export default async function handler(
     });
   }
 
-  try {
-    const result: any = {};
+  // normalize URLs (เติม https:// ถ้ายังไม่มี)
+  const normalizedUrls = urls.map((u) => {
+    const s = String(u || "").trim();
+    if (!s) return s;
+    if (s.startsWith("http://") || s.startsWith("https://")) return s;
+    return `https://${s}`;
+  });
 
-    async function safeRun(label: string, fn: () => Promise<any>) {
-      try {
-        return await fn();
-      } catch (err: any) {
-        console.error(`[${label}] failed:`, err);
-        return {
-          error: true,
-          errorMessage: err?.message || String(err),
-          results: urls.map((url) => ({
-            url,
-            reachable: false,
-            error: err?.message || "Unknown error",
-          })),
-        };
-      }
-    }
+  // normalize checks (all = true → เปิดทุกเทส)
+  const normalizedChecks: Checks = {
+    all: checks?.all,
+    check404: checks?.all || checks?.check404,
+    duplicate: checks?.all || checks?.duplicate,
+    seo: checks?.all || checks?.seo,
+  };
 
-    // 404
-    if (checks?.check404) {
-      result.check404 = await safeRun("404", () => check404(urls));
-    }
+  const WORKER_URL = process.env.DROPURL_WORKER_URL;
 
-    // DUPLICATE
-    if (checks?.duplicate) {
-      result.duplicate = await safeRun("duplicate", () => checkDuplicate(urls));
+  // ---------- โหมด 1: ถ้ามี WORKER_URL → ใช้ Railway worker ----------
+  if (WORKER_URL) {
+    try {
+      console.log("WORKER_URL =", WORKER_URL);
+      const upstream = await fetch(`${WORKER_URL}/run-checks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          urls: normalizedUrls,
+          checks: normalizedChecks,
+        }),
+      });
 
-      try {
-        console.log(
-          "DEBUG duplicate raw result:",
-          JSON.stringify(result.duplicate, null, 2)
-        );
-      } catch (e) {
-        console.log(
-          "DEBUG duplicate raw result (stringify failed):",
-          result.duplicate
-        );
-      }
+      const status = upstream.status;
 
-      try {
-        const dupRes = result.duplicate;
-        const items =
-          dupRes?.results && Array.isArray(dupRes.results)
-            ? dupRes.results
-            : [];
-
-        const detectedInternal = items.some((it: any) => {
-          if (Array.isArray(it.frames) && it.frames.length > 0) return true;
-          if (Array.isArray(it.duplicates) && it.duplicates.length > 0)
-            return true;
-          if (it?.frames && Object.keys(it.frames).length > 0) return true;
-          return false;
-        });
-
-        const hashToUrls: Record<string, Set<string>> = {};
-
+      if (!upstream.ok) {
+        let body: any = null;
         try {
-          for (const item of items) {
-            if (Array.isArray(item.frames)) {
-              for (const f of item.frames) {
-                if (f && f.hash) {
-                  if (!hashToUrls[f.hash]) hashToUrls[f.hash] = new Set();
-                  if (item.url) hashToUrls[f.hash].add(item.url);
-                  if (Array.isArray(f.duplicates)) {
-                    for (const d of f.duplicates) {
-                      if (d) hashToUrls[f.hash].add(String(d));
-                    }
-                  }
-                }
-              }
-            }
-
-            if (item.debug && Array.isArray(item.debug.sampleGroups)) {
-              for (const sg of item.debug.sampleGroups) {
-                if (sg && sg.hash && Array.isArray(sg.urls)) {
-                  if (!hashToUrls[sg.hash]) hashToUrls[sg.hash] = new Set();
-                  sg.urls.forEach((u: string) => {
-                    if (u) hashToUrls[sg.hash].add(u);
-                  });
-                  if (item.url) hashToUrls[sg.hash].add(item.url);
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.log(
-            "Failed building hash->urls map (non-fatal in API):",
-            e
-          );
+          body = await upstream.json();
+        } catch {
+          /* ignore */
         }
 
-        const crossPageDuplicates: { hash: string; urls: string[] }[] = [];
-        for (const [h, s] of Object.entries(hashToUrls)) {
-          const arr = Array.from(s);
-          if (arr.length > 1) {
-            crossPageDuplicates.push({ hash: h, urls: arr });
-          }
-        }
-
-        const detected = detectedInternal || crossPageDuplicates.length > 0;
-
-        result.duplicateSummary = {
-          detected,
-          itemsCount: items.length,
-          crossPageDuplicates,
-        };
-
-        console.log("DEBUG duplicate summary:", result.duplicateSummary);
-      } catch (e) {
-        console.log("DEBUG duplicate summary failed:", e);
+        // ส่ง status เดิมของ worker กลับไปเลย จะได้รู้ว่า worker 4xx/5xx
+        return res.status(status || 502).json({
+          error: true,
+          errorMessage:
+            body?.errorMessage || `Worker responded with status ${status}`,
+          workerStatus: status,
+          workerBody: body ?? null,
+        });
       }
+
+      const data: WorkerResult = (await upstream.json()) as any;
+      // worker ส่ง { error, result } → ส่งต่อให้ frontend / Discord เลย
+      return res.status(200).json(data);
+    } catch (err: any) {
+      console.error("check-url proxy error:", err);
+      return res.status(500).json({
+        error: true,
+        errorMessage: "Failed to contact worker.",
+        detail: String(err),
+      });
+    }
+  }
+
+  // ---------- โหมด 2: ถ้าไม่มี WORKER_URL → fallback 404 เบา ๆ ----------
+  try {
+    const result: WorkerResult["result"] = {};
+
+    // 1) 404
+    if (normalizedChecks.check404) {
+      result.check404 = await check404Simple(normalizedUrls);
     }
 
-    // SEO
-    if (checks?.seo) {
-      result.seo = await safeRun("seo", () => checkSeo(urls));
+    // 2) DUPLICATE (ยังไม่รองรับใน fallback แต่ให้โครงสร้างเหมือน worker)
+    if (normalizedChecks.duplicate) {
+      result.duplicate = {
+        error: true,
+        errorMessage:
+          "Duplicate scanning is not supported in this environment.",
+        results: [],
+      };
+
+      result.duplicateSummary = {
+        detected: false,
+        itemsCount: 0,
+        crossPageDuplicates: [],
+      };
+    }
+
+    // 3) SEO (ยังไม่รองรับใน fallback แต่ให้โครงสร้างเหมือน worker)
+    if (normalizedChecks.seo) {
+      result.seo = {
+        error: true,
+        errorMessage: "SEO analysis is not supported in this environment.",
+        results: [],
+      };
     }
 
     return res.status(200).json({ error: false, result });
