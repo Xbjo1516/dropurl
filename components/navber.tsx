@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { LanguageSwitcher } from "./Language/LanguageSwitcher";
@@ -59,9 +60,13 @@ export function Navbar() {
         `}
       >
         {/* LEFT logo */}
-        <div className="flex-1 flex items-center gap-3 ml-4">
+        <Link
+          href="/"
+          className="flex-1 flex items-center gap-3 ml-4 cursor-pointer"
+        >
           <img src="/logo.png" alt="logo" className="h-10 w-auto" />
-        </div>
+        </Link>
+
 
         {/* DESKTOP Menu */}
         <div className="hidden md:flex flex-none items-center gap-3 mr-4">

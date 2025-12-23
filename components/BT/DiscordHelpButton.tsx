@@ -22,7 +22,7 @@ export function DiscordHelpButton({ onClick }: DiscordHelpButtonProps) {
       {hover && (
         <div
           className="
-            absolute right-full mr-3 top-1/2 -translate-y-1/2
+            absolute right-full mr-3 top-1/2 -translate-y-16
             bg-base-200 text-base-content
             px-4 py-1.5 rounded-full shadow text-xs
             whitespace-nowrap
@@ -35,7 +35,7 @@ export function DiscordHelpButton({ onClick }: DiscordHelpButtonProps) {
       {/* ตัวน้อง Droppy */}
       <button
         onClick={onClick}
-        className="p-0 border-none bg-transparent cursor-pointer"
+        className="p-0 border-none bg-transparent cursor-pointer -translate-y-16"
       >
         <img
           src="/droppy.png"
