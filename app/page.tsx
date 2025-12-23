@@ -75,7 +75,8 @@ export default function Home() {
     setRows([]);
     setCrawlResults([]);
 
-    if (mode === "crawl" && options) {
+    if (mode === "crawl") {
+      if (!options) return;
       const res = await fetch("/api/crawl-check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -523,22 +524,10 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-base-100">
-      <div className="flex justify-center gap-4 py-4">
-        <button
-          className={`btn btn-sm ${mode === "single" ? "btn-primary" : ""}`}
-          onClick={() => setMode("single")}
-        >
-          Single URL
-        </button>
-        <button
-          className={`btn btn-sm ${mode === "crawl" ? "btn-primary" : ""}`}
-          onClick={() => setMode("crawl")}
-        >
-          Site Crawl
-        </button>
-      </div>
 
       <HeroSection
+        mode={mode}
+        setMode={setMode}
         urlsInput={urlsInput}
         setUrlsInput={setUrlsInput}
         checks={checks}
