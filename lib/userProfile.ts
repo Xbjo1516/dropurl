@@ -1,22 +1,31 @@
-// /lib/userProfile.ts
 "use client";
 
-import { getSupabaseClient } from "@/lib/supabaseClient";
-
-const supabase = getSupabaseClient();
-
+import { supabase } from "@/lib/supabaseClient";
 
 export async function syncCurrentUserProfile() {
+  console.log("🔄 syncCurrentUserProfile: start");
+
   const { data, error } = await supabase.auth.getUser();
+
   if (error || !data.user) {
-    console.warn("syncCurrentUserProfile: no auth user", error);
+    console.warn("❌ no auth user", error);
     return;
   }
 
   const user = data.user;
+  console.log("👤 auth user:", user.id);
 
-  const identities: any[] = (user.identities as any[]) ?? [];
-  const discordIdentity = identities.find((i) => i.provider === "discord");
+  // ===============================
+  // 2️⃣ Extract Discord identity
+  // ===============================
+  const identities: any[] = Array.isArray(user.identities)
+    ? user.identities
+    : [];
+
+  const discordIdentity = identities.find(
+    (i) => i.provider === "discord"
+  );
+
   const identityData = discordIdentity?.identity_data ?? {};
 
   const discordId =
@@ -27,21 +36,8 @@ export async function syncCurrentUserProfile() {
     user.user_metadata?.sub ||
     null;
 
-  const username =
-    user.user_metadata?.full_name ||
-    user.user_metadata?.name ||
-    user.user_metadata?.user_name ||
-    identityData.username ||
-    null;
-
-  const avatarUrl =
-    user.user_metadata?.avatar_url ||
-    user.user_metadata?.picture ||
-    identityData.avatar_url ||
-    null;
-
   if (!discordId) {
-    console.warn("syncCurrentUserProfile: no discordId found", {
+    console.warn("⚠️ syncCurrentUserProfile: no discordId", {
       identities,
       meta: user.user_metadata,
     });
@@ -51,22 +47,40 @@ export async function syncCurrentUserProfile() {
   const payload = {
     auth_user_id: user.id,
     discord_id: String(discordId),
-    discord_username: username,
-    avatar_url: avatarUrl,
+    discord_username:
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      identityData.username ||
+      null,
+    avatar_url:
+      user.user_metadata?.avatar_url ||
+      user.user_metadata?.picture ||
+      identityData.avatar_url ||
+      null,
   };
 
-  console.log("syncCurrentUserProfile payload:", payload);
+  console.log("📦 sync payload:", payload);
 
-  const { error: upsertError } = await supabase
-    .from("users")
-    .upsert(payload, { onConflict: "discord_id" });
-
-  if (upsertError) {
-    console.error("syncCurrentUserProfile failed:", {
-      message: upsertError.message,
-      details: upsertError.details,
-      hint: upsertError.hint,
-      code: upsertError.code,
+  // ===============================
+  // 3️⃣ Send to server API
+  // ===============================
+  try {
+    const res = await fetch("/api/sync-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include", // ⭐ สำคัญ
+      body: JSON.stringify(payload),
     });
+
+    const result = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      console.error("❌ sync-user API failed:", res.status, result);
+      return;
+    }
+
+    console.log("✅ sync-user success:", result);
+  } catch (err) {
+    console.error("🔥 sync-user network error:", err);
   }
 }
