@@ -7,27 +7,26 @@ import {
 } from "@/lib/checks";
 import { summarizeWithAI } from "@/lib/ai";
 
-// client สำหรับอ่าน auth จาก cookie
-const supabaseAuth = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-        },
-    }
-);
-
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
+        // ✅ สร้าง client "ตอน runtime เท่านั้น"
+        const supabaseAuth = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                auth: {
+                    persistSession: false,
+                    autoRefreshToken: false,
+                },
+            }
+        );
 
+        const body = await req.json();
         const {
             urls,
             rawInput,
             source = "web",
-            engineResult, // มาจาก client
+            engineResult,
         } = body;
 
         if (!urls || !Array.isArray(urls) || urls.length === 0) {
@@ -44,7 +43,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 1️⃣ ดึง auth user จาก cookie (Supabase session)
+        // 1️⃣ auth user จาก cookie
         const {
             data: { user },
             error: authError,
@@ -57,23 +56,21 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 2️⃣ หา user ใน domain users table จาก auth_user_id
-        // ⚠️ ตรงนี้ใช้ service role ใน lib/checks อยู่แล้ว
-        const { data: domainUser, error: userErr } =
-            await supabaseAuth
-                .from("users")
-                .select("id")
-                .eq("auth_user_id", user.id)
-                .single();
+        // 2️⃣ หา user ใน domain users
+        const { data: domainUser } = await supabaseAuth
+            .from("users")
+            .select("id")
+            .eq("auth_user_id", user.id)
+            .single();
 
-        if (userErr || !domainUser) {
+        if (!domainUser) {
             return NextResponse.json(
-                { error: "User profile not synced" },
+                { error: "User profile not found" },
                 { status: 400 }
             );
         }
 
-        // 3️⃣ สร้าง check
+        // 3️⃣ create check
         const check = await createCheck({
             user_id: domainUser.id,
             source,
@@ -81,7 +78,7 @@ export async function POST(req: NextRequest) {
             urls,
         });
 
-        // 4️⃣ Save ENGINE result
+        // 4️⃣ engine result
         await saveEngineResult({
             check_id: check.id,
             has_404: engineResult.has404,
@@ -90,7 +87,7 @@ export async function POST(req: NextRequest) {
             raw_result_json: engineResult.raw,
         });
 
-        // 5️⃣ AI summary
+        // 5️⃣ AI
         const aiSummary = await summarizeWithAI({
             urls,
             has404: engineResult.has404,
@@ -103,7 +100,6 @@ export async function POST(req: NextRequest) {
             ai_summary: aiSummary,
         });
 
-        // 6️⃣ response
         return NextResponse.json({
             success: true,
             check_id: check.id,
