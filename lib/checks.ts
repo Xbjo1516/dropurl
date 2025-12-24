@@ -1,4 +1,5 @@
-import { supabaseAdmin } from "./supabaseAdmin";
+// /lib/checks.ts
+import { getSupabaseAdmin } from "./supabaseAdmin";
 
 /* =======================
    USERS
@@ -8,7 +9,9 @@ export async function createOrGetUserByDiscord(params: {
     discord_username?: string;
     avatar_url?: string;
 }) {
-    // 1) พยายามหา user ก่อน (ปลอดภัย ไม่ throw ถ้าไม่เจอ)
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // 1️⃣ หา user ก่อน
     const { data: existing, error: findErr } = await supabaseAdmin
         .from("users")
         .select("*")
@@ -18,7 +21,7 @@ export async function createOrGetUserByDiscord(params: {
     if (findErr) throw findErr;
     if (existing) return existing;
 
-    // 2) ถ้าไม่เจอ → upsert (กัน race condition)
+    // 2️⃣ ถ้าไม่เจอ → upsert (กัน race condition)
     const { data, error } = await supabaseAdmin
         .from("users")
         .upsert(
@@ -43,9 +46,11 @@ export async function createOrGetUserByDiscord(params: {
 export async function createCheck(params: {
     user_id: number;
     source: "web" | "discord";
-    raw_input?: string;
+    raw_input?: string | null;
     urls: string[];
 }) {
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data, error } = await supabaseAdmin
         .from("checks")
         .insert({
@@ -72,6 +77,8 @@ export async function saveEngineResult(params: {
     raw_result_json: any;
     status?: "success" | "error";
 }) {
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data, error } = await supabaseAdmin
         .from("check_results")
         .insert({
@@ -98,6 +105,8 @@ export async function saveAiResult(params: {
     ai_summary: string;
     status?: "success" | "error";
 }) {
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data, error } = await supabaseAdmin
         .from("check_results")
         .insert({
