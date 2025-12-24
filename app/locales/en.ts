@@ -11,12 +11,12 @@ const en = {
     input: "URL to be checked",
     inputPlaceholder: "Paste URL to verify...",
     buttonCheck: "Check",
+    buttonLoad: "Checking...",
     errorRequired: "Please enter at least 1 URL",
-    errorInvalid: "Link is incorrectly formatted or does not exist",
+    errorInvalid: "Link is incorrectly formatted",
     errorDuplicate: "There are duplicate URLs in the list",
     errorNotFound: "One or more links are not found or do not exist",
     errorOther: "An error occurred with the URL(s). Please try again.",
-
     error: "Please enter at least 1 URL",
   },
   result: {
@@ -214,6 +214,20 @@ const en = {
     s7_desc:
       "Personal data is retained only for as long as necessary to fulfill the purposes for which it was collected, unless a longer retention period is required by law.",
   },
+  mode: {
+    single: "Single URL",
+    crawl: "Site Crawl"
+  },
+  crawl: {
+    depthLabel: "Depth",
+    depthTooltip: "How deep the crawler should follow links from the starting page.",
+    depth0: "Current page only",
+    depth1: "Depth 1 (links on this page)",
+    depth2: "Depth 2 (links of links)",
+    sameDomainLabel: "Same domain only",
+    sameDomainTooltip: "Only crawl links within the same website. Turn off to include external links.",
+    errorCrawlMultiUrl: "Site Crawl with depth supports only one URL at a time."
+  }
 };
 
 export default en;

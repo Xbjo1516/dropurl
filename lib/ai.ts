@@ -2,9 +2,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const apiKey = process.env.GEMINI_API_KEY;
+const MODEL_NAME = "gemini-2.5-flash";
 
 if (!apiKey) {
-  console.warn("⚠️ GEMINI_API_KEY is not set in .env.local");
+  console.warn("⚠️ GEMINI_API_KEY is not set in environment");
 }
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
@@ -20,15 +21,22 @@ export async function summarizeWithAI(
   meta: AiSummaryMeta,
   lang: "th" | "en" = "th"
 ): Promise<string> {
+  // Fallback message
+  const fallback =
+    lang === "th"
+      ? "ไม่สามารถสรุปผลด้วย AI ได้ในขณะนี้"
+      : "AI summary is not available at the moment.";
+
   if (!genAI) {
     return lang === "th"
       ? "ไม่สามารถเรียกใช้ AI ได้ (ยังไม่ได้ตั้งค่า GEMINI_API_KEY)"
       : "AI is not available (GEMINI_API_KEY is not configured).";
   }
 
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  try {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
-  const promptTh = `
+    const promptTh = `
 คุณคือผู้ช่วยด้านการตรวจสอบเว็บไซต์และ SEO
 ระบบได้ตรวจสอบ URL ดังนี้:
 - URLs: ${meta.urls.join(", ")}
@@ -36,18 +44,18 @@ export async function summarizeWithAI(
 สรุปสถานะรวม:
 - มีปัญหา 404 หรือไม่: ${meta.has404 ? "มี" : "ไม่มี"}
 - มีปัญหาลิงก์ซ้ำ (Duplicate) หรือไม่: ${
-    meta.hasDuplicate ? "มี" : "ไม่มี"
-  }
+      meta.hasDuplicate ? "มี" : "ไม่มี"
+    }
 - มีปัญหา SEO เบื้องต้นหรือไม่: ${meta.hasSeoIssues ? "มี" : "ไม่มี"}
 
 ให้คุณ:
 1) สรุปผลแบบอ่านเข้าใจง่ายไม่เกิน 4–6 บรรทัด
 2) ถ้ามีปัญหา ให้ยกตัวอย่างแนวทางแก้ไขแบบสั้น ๆ
-3) ใช้ภาษาที่เป็นมิตร และเหมาะกับผู้ใช้ทั่วไป (ไม่ต้องเทคนิคเกินไป)
+3) ใช้ภาษาที่เป็นมิตร และเหมาะกับผู้ใช้ทั่วไป
 ตอบเป็นภาษาไทยเท่านั้น
 `;
 
-  const promptEn = `
+    const promptEn = `
 You are an assistant specialized in website and SEO checks.
 The system has scanned the following URLs:
 - URLs: ${meta.urls.join(", ")}
@@ -65,11 +73,15 @@ Please:
 Reply in English only.
 `;
 
-  const prompt = lang === "th" ? promptTh : promptEn;
+    const prompt = lang === "th" ? promptTh : promptEn;
 
-  const result = await model.generateContent(prompt);
-  const response = result.response;
-  const text = response.text();
+    const result = await model.generateContent(prompt);
+    const text = result.response.text()?.trim();
 
-  return text.trim();
+    if (!text) return fallback;
+    return text;
+  } catch (err) {
+    console.error("summarizeWithAI error:", err);
+    return fallback;
+  }
 }
