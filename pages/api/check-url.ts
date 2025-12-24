@@ -8,26 +8,12 @@ type Checks = {
   seo?: boolean;
 };
 
-type Check404Item = {
-  url: string;
-  pageStatus: number | null;
-  iframe404s: any[];
-  assetFailures: any[];
-  error?: string;
-};
-
-type Check404Result = {
-  error: boolean;
-  errorMessage?: string;
-  results: Check404Item[];
-};
-
 type WorkerResult = {
   error: boolean;
   result: {
-    check404?: Check404Result;
-    duplicate?: any;
-    seo?: any;
+    check404?: { error: boolean; results: any[] };
+    duplicate?: { error: boolean; results: any[] };
+    seo?: { error: boolean; results: any[] };
     duplicateSummary?: {
       detected: boolean;
       itemsCount: number;
@@ -36,164 +22,142 @@ type WorkerResult = {
   };
 };
 
-// ---------- 404 แบบเบา ใช้ fetch ตรง (fallback เวลาไม่มี WORKER_URL) ----------
-async function check404Simple(urls: string[]): Promise<Check404Result> {
-  const results: Check404Item[] = [];
-
-  for (const raw of urls) {
-    const url = String(raw || "").trim();
-    let pageStatus: number | null = null;
-    let error: string | undefined;
-
-    try {
-      let res = await fetch(url, { method: "HEAD" });
-
-      // ถ้าเว็บไม่รองรับ HEAD → ลอง GET แทน
-      if (!res.ok && res.status === 405) {
-        res = await fetch(url, { method: "GET" });
-      }
-
-      pageStatus = res.status;
-    } catch (e: any) {
-      error = e?.message || String(e);
-    }
-
-    results.push({
-      url,
-      pageStatus,
-      iframe404s: [],
-      assetFailures: [],
-      ...(error ? { error } : {}),
-    });
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
   }
-
-  return { error: false, results };
+  return out;
 }
 
-// ---------- main handler ----------
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   if (req.method !== "POST") {
-    return res
-      .status(405)
-      .json({ error: true, errorMessage: "Method not allowed" });
+    return res.status(405).json({ error: true });
   }
 
-  const { urls, checks } = req.body as {
-    urls?: string[];
-    checks?: Checks;
-  };
+  const { urls, checks } = req.body;
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return res.status(400).json({ error: true, errorMessage: "Invalid urls" });
+  }
 
-  if (!urls || !Array.isArray(urls) || urls.length === 0) {
-    return res.status(400).json({
+  const WORKER_URL = process.env.DROPURL_WORKER_URL;
+  if (!WORKER_URL) {
+    return res.status(500).json({
       error: true,
-      errorMessage: "urls must be a non-empty array",
+      errorMessage: "WORKER_URL not configured",
     });
   }
 
-  // normalize URLs (เติม https:// ถ้ายังไม่มี)
-  const normalizedUrls = urls.map((u) => {
+  const normalizedUrls = urls.map((u: string) => {
     const s = String(u || "").trim();
     if (!s) return s;
     if (s.startsWith("http://") || s.startsWith("https://")) return s;
     return `https://${s}`;
   });
 
-  // normalize checks (all = true → เปิดทุกเทส)
+  const isSingleUrl = normalizedUrls.length === 1;
+
   const normalizedChecks: Checks = {
-    all: checks?.all,
-    check404: checks?.all || checks?.check404,
-    duplicate: checks?.all || checks?.duplicate,
-    seo: checks?.all || checks?.seo,
+    check404: checks?.all ?? checks?.check404 ?? true,
+    duplicate: checks?.all ?? checks?.duplicate ?? true,
+    seo: checks?.all ?? checks?.seo ?? true,
   };
 
-  const WORKER_URL = process.env.DROPURL_WORKER_URL;
+  const batches = chunkArray(normalizedUrls, 10);
 
-  // ---------- โหมด 1: ถ้ามี WORKER_URL → ใช้ Railway worker ----------
-  if (WORKER_URL) {
-    try {
-      console.log("WORKER_URL =", WORKER_URL);
-      const upstream = await fetch(`${WORKER_URL}/run-checks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          urls: normalizedUrls,
-          checks: normalizedChecks,
-        }),
+
+  const merged: WorkerResult["result"] = {
+    check404: { error: false, results: [] },
+    duplicate: { error: false, results: [] },
+    seo: { error: false, results: [] },
+    duplicateSummary: {
+      detected: false,
+      itemsCount: 0,
+      crossPageDuplicates: [],
+    },
+  };
+
+  try {
+    for (let i = 0; i < batches.length; i++) {
+      console.log(`Batch ${i + 1}/${batches.length}`, batches[i]);
+
+      const controller = new AbortController();
+
+      const timeoutMs = isSingleUrl ? 60000 : 25000;
+
+      const timeout = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+
+
+      let resp: Response;
+
+      console.log("RUN CHECKS:", {
+        urls: batches[i],
+        checks: normalizedChecks,
       });
 
-      const status = upstream.status;
-
-      if (!upstream.ok) {
-        let body: any = null;
-        try {
-          body = await upstream.json();
-        } catch {
-          /* ignore */
+      try {
+        resp = await fetch(`${WORKER_URL}/run-checks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            urls: batches[i],
+            checks: normalizedChecks,
+          }),
+          signal: controller.signal,
+        });
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          return res.status(200).json({
+            error: false,
+            partial: true,
+            message: `Batch ${i + 1} timed out`,
+          });
         }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+      }
 
-        // ส่ง status เดิมของ worker กลับไปเลย จะได้รู้ว่า worker 4xx/5xx
-        return res.status(status || 502).json({
+      if (!resp.ok) {
+        const text = await resp.text();
+        return res.status(502).json({
           error: true,
-          errorMessage:
-            body?.errorMessage || `Worker responded with status ${status}`,
-          workerStatus: status,
-          workerBody: body ?? null,
+          errorMessage: `Worker failed at batch ${i + 1}`,
+          detail: text,
         });
       }
 
-      const data: WorkerResult = (await upstream.json()) as any;
-      // worker ส่ง { error, result } → ส่งต่อให้ frontend / Discord เลย
-      return res.status(200).json(data);
-    } catch (err: any) {
-      console.error("check-url proxy error:", err);
-      return res.status(500).json({
-        error: true,
-        errorMessage: "Failed to contact worker.",
-        detail: String(err),
-      });
-    }
-  }
+      const data: WorkerResult = await resp.json();
 
-  // ---------- โหมด 2: ถ้าไม่มี WORKER_URL → fallback 404 เบา ๆ ----------
-  try {
-    const result: WorkerResult["result"] = {};
+      data.result?.check404?.results &&
+        merged.check404!.results.push(...data.result.check404.results);
 
-    // 1) 404
-    if (normalizedChecks.check404) {
-      result.check404 = await check404Simple(normalizedUrls);
+      data.result?.duplicate?.results &&
+        merged.duplicate!.results.push(...data.result.duplicate.results);
+
+      data.result?.seo?.results &&
+        merged.seo!.results.push(...data.result.seo.results);
+
+      if (data.result?.duplicateSummary?.crossPageDuplicates?.length) {
+        merged.duplicateSummary!.crossPageDuplicates.push(
+          ...data.result.duplicateSummary.crossPageDuplicates
+        );
+      }
     }
 
-    // 2) DUPLICATE (ยังไม่รองรับใน fallback แต่ให้โครงสร้างเหมือน worker)
-    if (normalizedChecks.duplicate) {
-      result.duplicate = {
-        error: true,
-        errorMessage:
-          "Duplicate scanning is not supported in this environment.",
-        results: [],
-      };
+    merged.duplicateSummary!.itemsCount =
+      merged.duplicateSummary!.crossPageDuplicates.length;
+    merged.duplicateSummary!.detected =
+      merged.duplicateSummary!.itemsCount > 0;
 
-      result.duplicateSummary = {
-        detected: false,
-        itemsCount: 0,
-        crossPageDuplicates: [],
-      };
-    }
-
-    // 3) SEO (ยังไม่รองรับใน fallback แต่ให้โครงสร้างเหมือน worker)
-    if (normalizedChecks.seo) {
-      result.seo = {
-        error: true,
-        errorMessage: "SEO analysis is not supported in this environment.",
-        results: [],
-      };
-    }
-
-    return res.status(200).json({ error: false, result });
+    return res.status(200).json({ error: false, result: merged });
   } catch (err: any) {
-    console.error("check-url handler error:", err);
+    console.error("check-url error:", err);
     return res.status(500).json({
       error: true,
       errorMessage: "Server error",

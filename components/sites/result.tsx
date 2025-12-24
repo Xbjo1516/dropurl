@@ -45,6 +45,13 @@ export default function ResultTable({ rows }: ResultTableProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filterType, setFilterType] = useState<FilterType>("all");
 
+  const PAGE_SIZE = 6;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, rows]);
+
   useEffect(() => {
     setSelectedIds((prev) => prev.filter((id) => rows.some((r) => r.id === id)));
   }, [rows]);
@@ -81,9 +88,9 @@ export default function ResultTable({ rows }: ResultTableProps) {
   const groupSeoIssues = (summary: string) => {
     const items = summary
       ? summary
-          .split(/\r?\n|\|/)
-          .map((s) => s.trim())
-          .filter(Boolean)
+        .split(/\r?\n|\|/)
+        .map((s) => s.trim())
+        .filter(Boolean)
       : [];
     const groups: Record<string, string[]> = {};
     let current = t.result.groupOthers;
@@ -111,6 +118,13 @@ export default function ResultTable({ rows }: ResultTableProps) {
     if (filterType === "seo") return ttype.includes("seo");
     return true;
   });
+
+  const totalPages = Math.ceil(filteredRows.length / PAGE_SIZE);
+
+  const paginatedRows = filteredRows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   const allSelected =
     filteredRows.length > 0 &&
@@ -189,9 +203,8 @@ export default function ResultTable({ rows }: ResultTableProps) {
 
                 <li>
                   <button
-                    className={`text-left w-full ${
-                      filterType === "all" ? "font-semibold text-primary" : ""
-                    }`}
+                    className={`text-left w-full ${filterType === "all" ? "font-semibold text-primary" : ""
+                      }`}
                     onClick={() => changeFilter("all")}
                   >
                     {t.result.filterAll}
@@ -199,9 +212,8 @@ export default function ResultTable({ rows }: ResultTableProps) {
                 </li>
                 <li>
                   <button
-                    className={`text-left w-full ${
-                      filterType === "404" ? "font-semibold text-primary" : ""
-                    }`}
+                    className={`text-left w-full ${filterType === "404" ? "font-semibold text-primary" : ""
+                      }`}
                     onClick={() => changeFilter("404")}
                   >
                     {t.result.filter404}
@@ -209,11 +221,10 @@ export default function ResultTable({ rows }: ResultTableProps) {
                 </li>
                 <li>
                   <button
-                    className={`text-left w-full ${
-                      filterType === "duplicate"
-                        ? "font-semibold text-primary"
-                        : ""
-                    }`}
+                    className={`text-left w-full ${filterType === "duplicate"
+                      ? "font-semibold text-primary"
+                      : ""
+                      }`}
                     onClick={() => changeFilter("duplicate")}
                   >
                     {t.result.filterDuplicate}
@@ -221,9 +232,8 @@ export default function ResultTable({ rows }: ResultTableProps) {
                 </li>
                 <li>
                   <button
-                    className={`text-left w-full ${
-                      filterType === "seo" ? "font-semibold text-primary" : ""
-                    }`}
+                    className={`text-left w-full ${filterType === "seo" ? "font-semibold text-primary" : ""
+                      }`}
                     onClick={() => changeFilter("seo")}
                   >
                     {t.result.filterSeo}
@@ -331,14 +341,14 @@ export default function ResultTable({ rows }: ResultTableProps) {
               <th className="px-3 py-2 w-[16%]">
                 {t.result.columnHasIssue}
               </th>
-              <th className="px-3 py-2">
+              <th className="px-3 py-2 w-[36%]">
                 {t.result.columnIssueSummary}
               </th>
             </tr>
           </thead>
 
           <tbody>
-            {filteredRows.map((row) => {
+            {paginatedRows.map((row) => {
               const isSelected = selectedIds.includes(row.id);
               const isSEO = (row.testType || "").toLowerCase().includes("seo");
               const isDup = (row.testType || "").toLowerCase().includes("dup");
@@ -357,13 +367,12 @@ export default function ResultTable({ rows }: ResultTableProps) {
               return (
                 <tr
                   key={row.id}
-                  className={`border-t border-slate-100 ${
-                    isSelected
-                      ? "bg-sky-50/60"
-                      : effectiveHasIssue
+                  className={`border-t border-slate-100 ${isSelected
+                    ? "bg-sky-50/60"
+                    : effectiveHasIssue
                       ? "bg-red-50/20"
                       : "bg-white"
-                  }`}
+                    }`}
                 >
                   <td className="px-3 py-2 align-top">
                     <input
@@ -398,11 +407,10 @@ export default function ResultTable({ rows }: ResultTableProps) {
 
                   <td className="px-3 py-2 align-top">
                     <span
-                      className={`inline-block rounded-full px-2 py-1 text-[11px] font-medium ${
-                        effectiveHasIssue
-                          ? "bg-red-50 text-red-600"
-                          : "bg-emerald-50 text-emerald-600"
-                      }`}
+                      className={`inline-block rounded-full px-2 py-1 text-[11px] font-medium ${effectiveHasIssue
+                        ? "bg-red-50 text-red-600"
+                        : "bg-emerald-50 text-emerald-600"
+                        }`}
                     >
                       {effectiveHasIssue
                         ? t.result.statusHasIssue
@@ -410,7 +418,7 @@ export default function ResultTable({ rows }: ResultTableProps) {
                     </span>
                   </td>
 
-                  <td className="px-3 py-2 align-top text-xs text-slate-700 max-w-md">
+                  <td className="px-3 py-2 align-top text-xs text-slate-700 max-w-[420px] break-words whitespace-pre-wrap">
                     {isSEO && groupedSEO ? (
                       <div className="space-y-1.5">
                         {Object.entries(groupedSEO).map(([group, items]) => (
@@ -434,7 +442,7 @@ export default function ResultTable({ rows }: ResultTableProps) {
                         </div>
 
                         {Array.isArray(crossDuplicates) &&
-                        crossDuplicates.length > 0 ? (
+                          crossDuplicates.length > 0 ? (
                           <div className="text-[12px] text-slate-700 space-y-3">
                             {(() => {
                               const groups: Record<string, string[]> = {};
@@ -486,6 +494,39 @@ export default function ResultTable({ rows }: ResultTableProps) {
             })}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-1 my-4">
+            <button
+              className="btn btn-xs"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+            >
+              ‹
+            </button>
+
+            {Array.from({ length: totalPages }).map((_, i) => {
+              const page = i + 1;
+              return (
+                <button
+                  key={page}
+                  className={`btn btn-xs ${page === currentPage ? "btn-primary" : "btn-ghost"
+                    }`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              );
+            })}
+
+            <button
+              className="btn btn-xs"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

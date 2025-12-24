@@ -1,0 +1,114 @@
+import { supabaseAdmin } from "./supabaseAdmin";
+
+/* =======================
+   USERS
+======================= */
+export async function createOrGetUserByDiscord(params: {
+    discord_id: string;
+    discord_username?: string;
+    avatar_url?: string;
+}) {
+    // 1) พยายามหา user ก่อน (ปลอดภัย ไม่ throw ถ้าไม่เจอ)
+    const { data: existing, error: findErr } = await supabaseAdmin
+        .from("users")
+        .select("*")
+        .eq("discord_id", params.discord_id)
+        .maybeSingle();
+
+    if (findErr) throw findErr;
+    if (existing) return existing;
+
+    // 2) ถ้าไม่เจอ → upsert (กัน race condition)
+    const { data, error } = await supabaseAdmin
+        .from("users")
+        .upsert(
+            {
+                discord_id: params.discord_id,
+                discord_username: params.discord_username ?? null,
+                avatar_url: params.avatar_url ?? null,
+                created_from: "discord",
+            },
+            { onConflict: "discord_id" }
+        )
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+/* =======================
+   CHECKS
+======================= */
+export async function createCheck(params: {
+    user_id: number;
+    source: "web" | "discord";
+    raw_input?: string;
+    urls: string[];
+}) {
+    const { data, error } = await supabaseAdmin
+        .from("checks")
+        .insert({
+            user_id: params.user_id,
+            source: params.source,
+            raw_input: params.raw_input ?? null,
+            urls: params.urls,
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+/* =======================
+   RESULTS - ENGINE
+======================= */
+export async function saveEngineResult(params: {
+    check_id: number;
+    has_404: boolean;
+    has_duplicate: boolean;
+    has_seo_issue: boolean;
+    raw_result_json: any;
+    status?: "success" | "error";
+}) {
+    const { data, error } = await supabaseAdmin
+        .from("check_results")
+        .insert({
+            check_id: params.check_id,
+            result_type: "engine",
+            status: params.status ?? "success",
+            has_404: params.has_404,
+            has_duplicate: params.has_duplicate,
+            has_seo_issue: params.has_seo_issue,
+            raw_result_json: params.raw_result_json,
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+/* =======================
+   RESULTS - AI
+======================= */
+export async function saveAiResult(params: {
+    check_id: number;
+    ai_summary: string;
+    status?: "success" | "error";
+}) {
+    const { data, error } = await supabaseAdmin
+        .from("check_results")
+        .insert({
+            check_id: params.check_id,
+            result_type: "ai",
+            status: params.status ?? "success",
+            ai_summary: params.ai_summary,
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}

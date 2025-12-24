@@ -1,4 +1,5 @@
 export interface CrawlResultItem {
+  parentUrl: any;
   url: string;
   status: number | null;
   depth: number;

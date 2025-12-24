@@ -74,33 +74,45 @@ export default function HeroSection({
       {/* Card */}
       <div className="w-full max-w-4xl px-4">
         <div className="bg-white text-slate-900 rounded-2xl shadow-xl p-6 md:p-8 border border-slate-200">
-          <div className="flex justify-Left gap-4 pb-4">
+          <div className="flex justify-start gap-4 pb-4">
             <button
+              type="button"
               className={`btn btn-sm ${mode === "single" ? "btn-primary" : ""}`}
               onClick={() => setMode("single")}
             >
-              Single URL
+              {t.mode.single}
             </button>
+
             <button
+              type="button"
               className={`btn btn-sm ${mode === "crawl" ? "btn-primary" : ""}`}
               onClick={() => setMode("crawl")}
             >
-              Site Crawl
+              {t.mode.crawl}
             </button>
           </div>
           {mode === "crawl" && (
             <div className="flex flex-wrap gap-4 mb-4 text-sm text-slate-700">
               {/* Depth */}
               <div className="flex items-center gap-2">
-                <span className="font-semibold">Depth</span>
+                <span className="font-semibold flex items-center gap-1">
+                  {t.crawl.depthLabel}
+                  <span
+                    className="tooltip tooltip-bottom"
+                    data-tip={t.crawl.depthTooltip}
+                  >
+                    {/* <span className="text-slate-400 cursor-help">ⓘ</span> */}
+                  </span>
+                </span>
+
                 <select
                   value={maxDepth}
                   onChange={(e) => setMaxDepth(Number(e.target.value))}
                   className="w-[210px] border border-slate-300 rounded-md px-2 py-1 text-sm bg-white text-slate-800"
                 >
-                  <option value={0}>Current page only</option>
-                  <option value={1}>Depth 1 (links on this page)</option>
-                  <option value={2}>Depth 2 (links of links)</option>
+                  <option value={0}>{t.crawl.depth0}</option>
+                  <option value={1}>{t.crawl.depth1}</option>
+                  {/* <option value={2}>{t.crawl.depth2}</option> */}
                 </select>
               </div>
 
@@ -112,78 +124,89 @@ export default function HeroSection({
                   checked={sameDomainOnly}
                   onChange={(e) => setSameDomainOnly(e.target.checked)}
                 />
-                <span>Same domain only</span>
+
+                <span className="flex items-center gap-1">
+                  {t.crawl.sameDomainLabel}
+                  <span
+                    className="tooltip tooltip-bottom"
+                    data-tip={t.crawl.sameDomainTooltip}
+                  >
+                    <span className="text-slate-400 cursor-help">ⓘ</span>
+                  </span>
+                </span>
               </label>
             </div>
           )}
 
           {/* ===== CHECK TYPES ===== */}
-          <div className="flex flex-wrap items-center gap-4 mb-4 text-sm text-slate-700">
-            <span className="font-semibold mr-2 w-full md:w-auto">
-              {t.home.tpye}
-            </span>
+          {mode === "single" && (
+            <div className="flex flex-wrap items-center gap-4 mb-4 text-sm text-slate-700">
+              <span className="font-semibold mr-2 w-full md:w-auto">
+                {t.home.tpye}
+              </span>
 
-            {/* All */}
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="checkbox checkbox-sm"
-                checked={checks.all}
-                onChange={(e) => {
-                  const value = e.target.checked;
-                  setChecks({
-                    all: value,
-                    check404: value,
-                    duplicate: value,
-                    seo: value,
-                  });
-                }}
-              />
-              <span>All</span>
-            </label>
+              {/* All */}
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-sm"
+                  checked={checks.all}
+                  onChange={(e) => {
+                    const value = e.target.checked;
+                    setChecks({
+                      all: value,
+                      check404: value,
+                      duplicate: value,
+                      seo: value,
+                    });
+                  }}
+                />
+                <span>All</span>
+              </label>
 
-            {/* 404 */}
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="checkbox checkbox-sm"
-                checked={checks.check404}
-                onChange={(e) => {
-                  const value = e.target.checked;
-                  setChecks((prev) => syncAll({ ...prev, check404: value }));
-                }}
-              />
-              <span>404</span>
-            </label>
+              {/* 404 */}
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-sm"
+                  checked={checks.check404}
+                  onChange={(e) => {
+                    const value = e.target.checked;
+                    setChecks((prev) => syncAll({ ...prev, check404: value }));
+                  }}
+                />
+                <span>404</span>
+              </label>
 
-            {/* Duplicate */}
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="checkbox checkbox-sm"
-                checked={checks.duplicate}
-                onChange={(e) => {
-                  const value = e.target.checked;
-                  setChecks((prev) => syncAll({ ...prev, duplicate: value }));
-                }}
-              />
-              <span>Duplicate</span>
-            </label>
+              {/* Duplicate */}
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-sm"
+                  checked={checks.duplicate}
+                  onChange={(e) => {
+                    const value = e.target.checked;
+                    setChecks((prev) => syncAll({ ...prev, duplicate: value }));
+                  }}
+                />
+                <span>Duplicate</span>
+              </label>
 
-            {/* SEO */}
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="checkbox checkbox-sm"
-                checked={checks.seo}
-                onChange={(e) => {
-                  const value = e.target.checked;
-                  setChecks((prev) => syncAll({ ...prev, seo: value }));
-                }}
-              />
-              <span>SEO</span>
-            </label>
-          </div>
+              {/* SEO */}
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-sm"
+                  checked={checks.seo}
+                  onChange={(e) => {
+                    const value = e.target.checked;
+                    setChecks((prev) => syncAll({ ...prev, seo: value }));
+                  }}
+                />
+                <span>SEO</span>
+              </label>
+            </div>
+          )}
 
           {/* ===== FORM ===== */}
           <form
@@ -211,7 +234,7 @@ export default function HeroSection({
                 className="btn btn-primary w-full md:w-auto"
                 disabled={loading}
               >
-                {loading ? "Checking..." : t.home.buttonCheck}
+                {loading ? t.home.buttonLoad : t.home.buttonCheck}
               </button>
             </div>
           </form>
