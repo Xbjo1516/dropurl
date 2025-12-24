@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+import { supabase } from "@/lib/supabaseClient";
+import type { User } from "@supabase/supabase-js";
 
 import { useLang } from "@/components/Language/LanguageProvider";
 import HeroSection, { Checks } from "../components/sites/input";
@@ -41,6 +44,13 @@ function mapCrawlToRows(
 
 export default function Home() {
   const { t } = useLang();
+
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
+    });
+  }, []);
 
   const [mode, setMode] = useState<Mode>("single");
   const [urlsInput, setUrlsInput] = useState("");
@@ -105,6 +115,12 @@ export default function Home() {
     }
   ) => {
     e.preventDefault();
+
+    if (!user) {
+      setError("Please login before checking URLs");
+      setLoading(false);
+      return;
+    }
 
     const urls = parseUrls(urlsInput);
 
@@ -616,8 +632,8 @@ export default function Home() {
       await fetch("/api/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
+          auth_user_id: user.id,   // ⭐⭐ ใส่ตรงนี้
           urls,
           rawInput: urlsInput,
           source: "web",
