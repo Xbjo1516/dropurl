@@ -21,7 +21,7 @@ export async function createOrGetUserByDiscord(params: {
     if (findErr) throw findErr;
     if (existing) return existing;
 
-    // 2️⃣ ถ้าไม่เจอ → upsert (กัน race condition)
+    // 2️⃣ ไม่เจอ → สร้างใหม่ (upsert กัน race condition)
     const { data, error } = await supabaseAdmin
         .from("users")
         .upsert(
