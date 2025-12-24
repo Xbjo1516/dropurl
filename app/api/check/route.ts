@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
             check_id: check.id,
             has_404: engineResult.has404,
             has_duplicate: engineResult.hasDuplicate,
-            has_seo_issue: engineResult.hasSeoIssues,
+            has_seo_issues: engineResult.hasSeoIssues,
             raw_result_json: engineResult.raw ?? {},
         });
 
