@@ -10,12 +10,6 @@ export const supabase = createClient(
       detectSessionInUrl: true,
       storageKey: "sb-auth",
     },
-    global: {
-      fetch: (url, options = {}) =>
-        fetch(url, {
-          ...options,
-          credentials: "include", // ⭐⭐⭐ สำคัญมาก
-        }),
-    },
+    // ❌ ห้ามมี global.fetch
   }
 );
