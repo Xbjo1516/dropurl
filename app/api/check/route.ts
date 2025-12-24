@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+
 import {
     createCheck,
     saveEngineResult,
@@ -9,8 +11,8 @@ import { summarizeWithAI } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
     try {
-        // ✅ สร้าง client "ตอน runtime เท่านั้น"
-        const supabaseAuth = createClient(
+        // ✅ Supabase client ที่อ่าน auth จาก cookie
+        const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
@@ -18,22 +20,19 @@ export async function POST(req: NextRequest) {
                     persistSession: false,
                     autoRefreshToken: false,
                 },
+                global: {
+                    headers: {
+                        Cookie: cookies().toString(),
+                    },
+                },
             }
         );
 
         const body = await req.json();
-        const {
-            urls,
-            rawInput,
-            source = "web",
-            engineResult,
-        } = body;
+        const { urls, rawInput, source = "web", engineResult } = body;
 
-        if (!urls || !Array.isArray(urls) || urls.length === 0) {
-            return NextResponse.json(
-                { error: "URLs are required" },
-                { status: 400 }
-            );
+        if (!urls?.length) {
+            return NextResponse.json({ error: "URLs are required" }, { status: 400 });
         }
 
         if (!engineResult) {
@@ -43,27 +42,26 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 1️⃣ auth user จาก cookie
+        // 1️⃣ auth user
         const {
             data: { user },
-            error: authError,
-        } = await supabaseAuth.auth.getUser();
+        } = await supabase.auth.getUser();
 
-        if (authError || !user) {
+        if (!user) {
             return NextResponse.json(
                 { error: "User not authenticated" },
                 { status: 401 }
             );
         }
 
-        // 2️⃣ หา user ใน domain users
-        const { data: domainUser } = await supabaseAuth
+        // 2️⃣ domain user
+        const { data: domainUser, error: userErr } = await supabase
             .from("users")
             .select("id")
             .eq("auth_user_id", user.id)
             .single();
 
-        if (!domainUser) {
+        if (userErr || !domainUser) {
             return NextResponse.json(
                 { error: "User profile not found" },
                 { status: 400 }
