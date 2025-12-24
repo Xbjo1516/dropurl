@@ -11,22 +11,25 @@ import { summarizeWithAI } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
     try {
-        // ✅ Supabase client ที่อ่าน auth จาก cookie
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-                auth: {
-                    persistSession: false,
-                    autoRefreshToken: false,
+        // ✅ สร้างตอน runtime เท่านั้น (แก้ build error)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            throw new Error("Supabase env vars are missing");
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseKey, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+            },
+            global: {
+                headers: {
+                    Cookie: cookies().toString(),
                 },
-                global: {
-                    headers: {
-                        Cookie: cookies().toString(),
-                    },
-                },
-            }
-        );
+            },
+        });
 
         const body = await req.json();
         const { urls, rawInput, source = "web", engineResult } = body;
