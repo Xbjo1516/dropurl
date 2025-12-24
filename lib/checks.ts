@@ -73,7 +73,7 @@ export async function saveEngineResult(params: {
     check_id: number;
     has_404: boolean;
     has_duplicate: boolean;
-    has_seo_issue: boolean;
+    has_seo_issues: boolean;
     raw_result_json: any;
     status?: "success" | "error";
 }) {
@@ -87,7 +87,7 @@ export async function saveEngineResult(params: {
             status: params.status ?? "success",
             has_404: params.has_404,
             has_duplicate: params.has_duplicate,
-            has_seo_issue: params.has_seo_issue,
+            has_seo_issues: params.has_seo_issues,
             raw_result_json: params.raw_result_json,
         })
         .select()
