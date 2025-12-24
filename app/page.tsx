@@ -616,6 +616,7 @@ export default function Home() {
       await fetch("/api/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           urls,
           rawInput: urlsInput,
