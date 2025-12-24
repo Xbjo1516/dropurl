@@ -3,7 +3,6 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-// บังคับ dynamic เพื่อให้ cookie ทำงานบน Vercel
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
@@ -11,7 +10,7 @@ export async function POST(req: NextRequest) {
 
     try {
         // ===============================
-        // 1️⃣ supabase (อ่าน auth จาก cookie)
+        // 1️⃣ auth user
         // ===============================
         const supabase = createRouteHandlerClient({ cookies });
 
@@ -24,36 +23,28 @@ export async function POST(req: NextRequest) {
         console.log("⚠️ auth error:", authError);
 
         if (!user || authError) {
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         // ===============================
         // 2️⃣ body
         // ===============================
         const body = await req.json();
-        console.log("📦 payload:", body);
+        console.log("📦 body:", body);
 
-        const {
-            discord_id,
-            discord_username,
-            avatar_url,
-        } = body;
-
-        if (!discord_id) {
-            return NextResponse.json(
-                { error: "discord_id is required" },
-                { status: 400 }
-            );
-        }
+        const { discord_id, discord_username, avatar_url } = body;
 
         // ===============================
-        // 3️⃣ upsert user (admin)
+        // 3️⃣ create admin client
         // ===============================
+        console.log("🔑 creating admin client...");
         const supabaseAdmin = getSupabaseAdmin();
+        console.log("✅ admin client created");
 
+        // ===============================
+        // 4️⃣ upsert
+        // ===============================
+        console.log("💾 upserting user...");
         const { data, error } = await supabaseAdmin
             .from("users")
             .upsert(
@@ -68,21 +59,20 @@ export async function POST(req: NextRequest) {
             .select()
             .single();
 
-        console.log("✅ upsert result:", data);
-        console.log("⚠️ upsert error:", error);
+        console.log("📊 upsert data:", data);
+        console.log("❌ upsert error:", error);
 
-        if (error) {
-            throw error;
-        }
+        if (error) throw error;
 
-        return NextResponse.json({
-            success: true,
-            user: data,
-        });
-    } catch (err) {
-        console.error("🔥 /api/sync-user error:", err);
+        return NextResponse.json({ success: true, user: data });
+    } catch (err: any) {
+        console.error("🔥 sync-user FATAL:", err);
         return NextResponse.json(
-            { error: "Internal server error" },
+            {
+                error: "Internal server error",
+                message: err?.message,
+                details: err,
+            },
             { status: 500 }
         );
     }
