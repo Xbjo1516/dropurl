@@ -71,12 +71,21 @@ ${issue.urls.map((u) => `- ${u}`).join("\n")}
         : ""
       }
 
-ให้คุณ:
-1) สรุปผลแบบอ่านเข้าใจง่ายไม่เกิน 4–6 บรรทัด
-2) ระบุประเภทปัญหาที่พบทั้งหมด
-3) บอกว่าแต่ละปัญหาเกิดกับ URL ใดบ้าง
-4) แนะนำวิธีแก้ไขของแต่ละประเภทแบบสั้น ๆ
-5) ใช้ภาษาที่เป็นมิตร และเหมาะกับผู้ใช้ทั่วไป
+ให้คุณตอบตามกติกานี้อย่างเคร่งครัด:
+
+รูปแบบคำตอบ:
+- ห้ามใช้เครื่องหมาย * หรือ -
+- ห้ามใช้ bullet point ทุกชนิด
+- ใช้ตัวเลข 1 2 3 เท่านั้น
+- ใช้ประโยคสั้น อ่านง่าย
+- ความยาวรวมไม่เกิน 8–10 บรรทัด
+- เหมาะสำหรับแสดงผลใน Discord
+
+โครงสร้างคำตอบ:
+1) บทนำสั้นมาก ว่าเป็นสรุปจากผลการตรวจด้านบน
+2) ระบุประเภทปัญหาที่พบ (ถ้าไม่มี ให้บอกว่าไม่พบ)
+3) ระบุ URL ที่มีปัญหา
+4) คำแนะนำในการแก้ไข แบ่งเป็นข้อ 1 2 3
 
 ตอบเป็นภาษาไทยเท่านั้น
 `;
@@ -88,9 +97,9 @@ The system has scanned the following URLs:
 ${meta.urls.join("\n")}
 
 Overall status:
-- Any 404 issues: ${meta.has404 ? "Yes" : "No"}
-- Any duplicate link issues: ${meta.hasDuplicate ? "Yes" : "No"}
-- Any basic SEO issues: ${meta.hasSeoIssues ? "Yes" : "No"}
+    - Any 404 issues: ${meta.has404 ? "Yes" : "No"}
+    - Any duplicate link issues: ${meta.hasDuplicate ? "Yes" : "No"}
+    - Any basic SEO issues: ${meta.hasSeoIssues ? "Yes" : "No"}
 
 ${meta.issueDetails && meta.issueDetails.length > 0
         ? `
@@ -109,12 +118,21 @@ Additional note: ${issue.note ?? "-"}
         : ""
       }
 
-Please:
-1) Summarize the overall results in 4–6 short, easy-to-read lines.
-2) List all issue types that were found.
-3) Clearly state which URLs are affected by each issue.
-4) Provide brief, practical suggestions on how to fix each issue.
-5) Use friendly, non-technical language suitable for general users.
+Follow these rules strictly:
+
+Formatting rules:
+- Do NOT use * or -
+- Do NOT use bullet points
+- Use numbered lists only (1 2 3)
+- Short, clear sentences
+- Max 8–10 lines total
+- Discord-friendly
+
+Response structure:
+1) Very short intro saying this is a summary from the results above
+2) Issue types found (or say none found)
+3) Affected URLs
+4) Fix suggestions as numbered steps
 
 Reply in English only.
 `;
