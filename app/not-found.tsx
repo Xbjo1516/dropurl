@@ -16,7 +16,7 @@ export default function NotFound() {
                 playsInline
                 className="mb-8 w-[500px] rounded-xl"
             >
-                <source src="/Error4041.mp4" type="video/mp4" />
+                <source src="/Error404.mp4" type="video/mp4" />
                 <img src="/Error404.png" alt="404" />
             </video>
 
