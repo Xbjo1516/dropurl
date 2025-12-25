@@ -215,11 +215,11 @@ export function DiscordHelpModal({ open, onClose }: DiscordHelpModalProps) {
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end">
+            {/* <div className="mt-4 flex justify-end">
               <button className="btn btn-ghost btn-sm" onClick={onClose}>
                 {t.discord.cancel}
               </button>
-            </div>
+            </div> */}
           </>
         )}
       </div>
