@@ -5,7 +5,7 @@ export default function NotFound() {
         <div
             className="
         min-h-screen flex flex-col items-center justify-center
-        bg-base-100 text-center px-6
+        bg-white text-center px-6
       "
         >
             {/* Illustration */}
