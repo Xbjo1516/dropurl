@@ -2,10 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseClient } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 import { useLang } from "@/components/Language/LanguageProvider";
-
-const supabase = getSupabaseClient();
 
 type DiscordHelpModalProps = {
   open: boolean;

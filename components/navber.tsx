@@ -4,53 +4,73 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { LanguageSwitcher } from "./Language/LanguageSwitcher";
-import { getSupabaseClient } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient"; // ✅ แก้ตรงนี้
 import type { User } from "@supabase/supabase-js";
 import { syncCurrentUserProfile } from "@/lib/userProfile";
-
-const supabase = getSupabaseClient();
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false); // สำหรับมือถือ
+  const [menuOpen, setMenuOpen] = useState(false);
 
+  // ===============================
+  // scroll shadow
+  // ===============================
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 5);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // ===============================
+  // auth listener
+  // ===============================
   useEffect(() => {
+    console.log("🔔 Navbar auth init");
+
     supabase.auth.getUser().then(({ data }) => {
       const u = data.user ?? null;
+      console.log("👤 initial user:", u?.id);
       setUser(u);
       if (u) syncCurrentUserProfile();
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        const u = session?.user ?? null;
-        setUser(u);
-        if (u) syncCurrentUserProfile();
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user ?? null;
+      console.log("🔁 auth change:", _event, u?.id);
+      setUser(u);
+      if (u) syncCurrentUserProfile();
+    });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // ===============================
+  // actions
+  // ===============================
   const loginWithDiscord = async () => {
+    console.log("🔐 login with discord");
     await supabase.auth.signInWithOAuth({
       provider: "discord",
-      options: { redirectTo: `${window.location.origin}/` },
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
     });
   };
 
   const logout = async () => {
+    console.log("🚪 logout");
     await supabase.auth.signOut();
     window.location.reload();
   };
 
+  // ===============================
+  // render
+  // ===============================
   return (
     <>
       <div
@@ -66,7 +86,6 @@ export function Navbar() {
         >
           <img src="/logo.png" alt="logo" className="h-10 w-auto" />
         </Link>
-
 
         {/* DESKTOP Menu */}
         <div className="hidden md:flex flex-none items-center gap-3 mr-4">
@@ -98,7 +117,6 @@ export function Navbar() {
             className="btn btn-sm btn-ghost"
             onClick={() => setMenuOpen((v) => !v)}
           >
-            {/* Hamburger icon */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6"
@@ -126,32 +144,24 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* MOBILE SIDEBAR + OVERLAY */}
+      {/* MOBILE SIDEBAR */}
       {menuOpen && (
         <>
-          {/* พื้นหลังมืด คลิกแล้วปิดเมนู */}
           <div
             className="fixed inset-0 bg-black/40 z-40 md:hidden"
             onClick={() => setMenuOpen(false)}
           />
 
-          {/* Sidebar ด้านขวา */}
           <div className="fixed top-0 right-0 h-full w-64 max-w-[80%] bg-base-100 border-l border-base-300 shadow-2xl z-50 p-4 md:hidden flex flex-col gap-4">
-            {/* header ด้านบนของ sidebar */}
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                {/* <img src="/logo.png" alt="logo" className="h-8 w-auto" />
-                <span className="font-semibold text-sm">Menu</span> */}
-              </div>
               <button
-                className="btn btn-xs btn-ghost"
+                className="btn btn-xs btn-ghost ml-auto"
                 onClick={() => setMenuOpen(false)}
               >
                 ✕
               </button>
             </div>
 
-            {/* user / login */}
             <div className="border-b border-base-300 pb-3">
               {user ? (
                 <div className="flex flex-col gap-2">
@@ -175,7 +185,6 @@ export function Navbar() {
               )}
             </div>
 
-            {/* Theme + Language ในรูปแบบหัวข้อใหญ่/ย่อย (ตัวคอมโพเนนต์ที่คุณแก้แล้วจะจัดการเองตามขนาดจอ) */}
             <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
               <ThemeSwitcher />
               <LanguageSwitcher />

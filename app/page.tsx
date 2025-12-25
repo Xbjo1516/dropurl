@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+import { supabase } from "@/lib/supabaseClient";
+import type { User } from "@supabase/supabase-js";
 
 import { useLang } from "@/components/Language/LanguageProvider";
 import HeroSection, { Checks } from "../components/sites/input";
@@ -15,8 +18,39 @@ import { DiscordHelpModal } from "@/components/modal/DiscordHelpModal";
 
 type Mode = "single" | "crawl";
 
+function mapCrawlToRows(
+  crawlResults: CrawlResultItem[]
+): TestResultRow[] {
+  return crawlResults.map((item, index) => ({
+    id: `CRAWL-${index}`,
+    url: item.url,
+    testType:
+      item.status === 404
+        ? "404"
+        : item.status === null
+          ? "ERROR"
+          : "CRAWL",
+    hasIssue: item.status === 404 || item.status === null || !!item.error,
+    issueSummary: [
+      `Status: ${item.status ?? "N/A"}`,
+      `Depth: ${item.depth}`,
+      item.from ? `Found on: ${item.from}` : null,
+      item.error ? `Error: ${item.error}` : null,
+    ]
+      .filter(Boolean)
+      .join(" | "),
+  }));
+}
+
 export default function Home() {
   const { t } = useLang();
+
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
+    });
+  }, []);
 
   const [mode, setMode] = useState<Mode>("single");
   const [urlsInput, setUrlsInput] = useState("");
@@ -39,6 +73,40 @@ export default function Home() {
       .map((u) => u.trim())
       .filter(Boolean);
 
+  function isValidHttpUrlStrict(input: string): boolean {
+    let url: URL;
+
+    try {
+      url = new URL(input);
+    } catch {
+      return false;
+    }
+
+    // ต้องเป็น http หรือ https
+    if (!["http:", "https:"].includes(url.protocol)) {
+      return false;
+    }
+
+    const hostname = url.hostname;
+
+    // ต้องมี dot (กัน https://kipso)
+    if (!hostname.includes(".")) {
+      return false;
+    }
+
+    // กัน localhost
+    if (hostname === "localhost") {
+      return false;
+    }
+
+    // กันชื่อสั้นเกิน
+    if (hostname.length < 4) {
+      return false;
+    }
+
+    return true;
+  }
+
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>,
     options?: {
@@ -48,26 +116,74 @@ export default function Home() {
   ) => {
     e.preventDefault();
 
+    if (!user) {
+      setError("Please login before checking URLs");
+      setLoading(false);
+      return;
+    }
+
     const urls = parseUrls(urlsInput);
 
+    // 1️⃣ ไม่กรอก URL
     if (!urls.length) {
       setError(t.home.errorRequired);
       setRows([]);
       return;
     }
 
+    // 2️⃣ ตรวจ URL ซ้ำ
+    const uniqueUrls = new Set(urls);
+    if (uniqueUrls.size !== urls.length) {
+      setError(t.home.errorDuplicate);
+      setRows([]);
+      return;
+    }
+
+    // 3️⃣ ตรวจรูปแบบ URL
     for (const rawUrl of urls) {
-      try {
-        const normalized =
-          rawUrl.startsWith("http://") || rawUrl.startsWith("https://")
-            ? rawUrl
-            : `https://${rawUrl}`;
-        new URL(normalized);
-      } catch {
+      if (!isValidHttpUrlStrict(rawUrl)) {
         setError(t.home.errorInvalid);
         setRows([]);
+        setLoading(false);
         return;
       }
+    }
+
+    // 4️⃣ ตรวจว่า URL มีอยู่จริง (ผ่าน server)
+    for (const rawUrl of urls) {
+      try {
+        const resp = await fetch("/api/validate-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: rawUrl }),
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+          setError(
+            t.home.errorNotFound
+          );
+          setRows([]);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        setError(
+          t.home.errorOther
+        );
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (mode === "crawl" && urls.length > 1) {
+      setError(
+        t.crawl.errorCrawlMultiUrl);
+      setRows([]);
+      setLoading(false);
+      return;
     }
 
     setError(null);
@@ -89,6 +205,7 @@ export default function Home() {
       });
 
       const data = await res.json();
+      console.log("CRAWL RAW RESPONSE:", data);
 
       if (!res.ok || data?.error) {
         setError(data?.errorMessage || t.home.errorOther);
@@ -96,430 +213,454 @@ export default function Home() {
         return;
       }
 
-      // ❗ ยังไม่ map เป็น table
-      setCrawlResults(data.results || []);
+      const crawlItems = data.result?.results || [];
+      console.log("CRAWL ITEMS:", crawlItems);
+
+      // 1️⃣ เก็บไว้ใช้กับ CrawlTree (ของเดิม)
+      setCrawlResults(crawlItems);
+
+
+      // 2️⃣ แปลง crawl → table rows (เฉพาะ 404)
+      const crawlRows = mapCrawlToRows(crawlItems);
+      setRows(crawlRows);
+      console.log("CRAWL 404 ROWS:", crawlItems);
+
       setLoading(false);
       return;
     }
 
-    try {
-      const res = await fetch("/api/check-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls, checks }),
-      });
+    const allRows: TestResultRow[] = [];
 
-      if (!res.ok) {
-        let body: any = null;
-        try {
-          body = await res.json();
-        } catch {
-          /* ignore */
-        }
-        setError(body?.errorMessage || t.home.errorOther);
-        setRows([]);
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-
-      if (data?.error) {
-        setError(data.errorMessage || t.home.errorOther);
-        setRows([]);
-        setLoading(false);
-        return;
-      }
-
-      const newRows: TestResultRow[] = [];
-
-      const check404Result = data.result?.check404;
-      const dupResult = data.result?.duplicate;
-      const seoResult = data.result?.seo;
-
-      // ❌ บล็อกนี้เป็นตัวทำให้โดนฟ้อง "ลิงก์ไม่ถูกต้อง" ตลอด
-      // ถอดออก / คอมเมนต์ทิ้งไป
-      //
-      // if (
-      //   checks.seo &&
-      //   seoResult?.results &&
-      //   Array.isArray(seoResult.results) &&
-      //   seoResult.results.some((it: any) => it.reachable === false)
-      // ) {
-      //   setError(t.home.errorInvalid);
-      //   setRows([]);
-      //   setLoading(false);
-      //   return;
-      // }
-
-      // ========== 1) 404 ==========
-      if (
-        checks.check404 &&
-        check404Result?.results &&
-        Array.isArray(check404Result.results)
-      ) {
-        check404Result.results.forEach((item: any, index: number) => {
-          const hasIssue =
-            item.pageStatus === 404 ||
-            (item.iframe404s && item.iframe404s.length > 0) ||
-            (item.assetFailures && item.assetFailures.length > 0);
-
-          const problems: string[] = [];
-          if (item.pageStatus === 404) {
-            problems.push("Main page returns 404.");
-          } else if (item.pageStatus === null) {
-            problems.push(
-              item.error
-                ? `Fetch error: ${item.error}`
-                : "No HTTP response (pageStatus=null)."
-            );
-          } else if (typeof item.pageStatus === "number") {
-            problems.push(`HTTP ${item.pageStatus}`);
-          } else {
-            problems.push("No HTTP response information.");
-          }
-
-          if (item.iframe404s?.length) {
-            problems.push(
-              `Found ${item.iframe404s.length} iframe(s) with 404 errors.`
-            );
-          }
-          if (item.assetFailures?.length) {
-            problems.push(
-              `Found ${item.assetFailures.length} asset(s) with 404 errors.`
-            );
-          }
-
-          newRows.push({
-            id: `404-${index}`,
-            url: item.url ?? urls[index] ?? "-",
-            testType: "404",
-            hasIssue,
-            issueSummary: problems.length ? problems.join(" | ") : "-",
-          });
+    for (let urlIndex = 0; urlIndex < urls.length; urlIndex++) {
+      const url = urls[urlIndex];
+      try {
+        const res = await fetch("/api/check-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            urls: [url], // ⭐ ส่งทีละ URL
+            checks,
+          }),
         });
-      }
 
-      // ========== 2) DUPLICATE ==========
-      if (
-        checks.duplicate &&
-        dupResult?.results &&
-        Array.isArray(dupResult.results)
-      ) {
-        const simpleHash = (s: string) => {
-          let h = 0;
-          for (let i = 0; i < s.length; i++) {
-            h = (h << 5) - h + s.charCodeAt(i);
-            h |= 0;
-          }
-          return Math.abs(h);
-        };
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          setError(body?.errorMessage || t.home.errorOther);
+          continue;
+        }
 
-        dupResult.results.forEach((item: any, index: number) => {
-          try {
-            if (!item || typeof item !== "object") {
-              newRows.push({
-                id: `DUP-${index}-invalid`,
-                url: typeof item === "string" ? item : `unknown-${index}`,
-                testType: "DUPLICATE",
-                hasIssue: false,
-                issueSummary:
-                  "Duplicate check returned unexpected item format from server.",
-              });
-              return;
+        const data = await res.json();
+
+        if (data?.error) {
+          setError(data.errorMessage || t.home.errorOther);
+          continue;
+        }
+
+        const newRows: TestResultRow[] = [];
+
+        const check404Result = data.result?.check404;
+        const dupResult = data.result?.duplicate;
+        const seoResult = data.result?.seo;
+
+        // ========== 1) 404 ==========
+        if (
+          checks.check404 &&
+          check404Result?.results &&
+          Array.isArray(check404Result.results)
+        ) {
+          check404Result.results.forEach((item: any, index: number) => {
+            const hasIssue =
+              item.pageStatus === 404 ||
+              (item.iframe404s && item.iframe404s.length > 0) ||
+              (item.assetFailures && item.assetFailures.length > 0);
+
+            const problems: string[] = [];
+            if (item.pageStatus === 404) {
+              problems.push("Main page returns 404.");
+            } else if (item.pageStatus === null) {
+              problems.push(
+                item.error
+                  ? `Fetch error: ${item.error}`
+                  : "No HTTP response (pageStatus=null)."
+              );
+            } else if (typeof item.pageStatus === "number") {
+              problems.push(`HTTP ${item.pageStatus}`);
+            } else {
+              problems.push("No HTTP response information.");
             }
 
-            if (item.error || item._error || item.errorMessage) {
+            if (item.iframe404s?.length) {
+              problems.push(
+                `Found ${item.iframe404s.length} iframe(s) with 404 errors.`
+              );
+            }
+            if (item.assetFailures?.length) {
+              problems.push(
+                `Found ${item.assetFailures.length} asset(s) with 404 errors.`
+              );
+            }
+
+            newRows.push({
+              id: `404-${urlIndex}-${index}`,
+              url: item.url ?? url ?? "-",
+              testType: "404",
+              hasIssue,
+              issueSummary: problems.length ? problems.join(" | ") : "-",
+            });
+          });
+        }
+
+        // ========== 2) DUPLICATE ==========
+        if (
+          checks.duplicate &&
+          dupResult?.results &&
+          Array.isArray(dupResult.results)
+        ) {
+          const simpleHash = (s: string) => {
+            let h = 0;
+            for (let i = 0; i < s.length; i++) {
+              h = (h << 5) - h + s.charCodeAt(i);
+              h |= 0;
+            }
+            return Math.abs(h);
+          };
+
+          dupResult.results.forEach((item: any, index: number) => {
+            try {
+              if (!item || typeof item !== "object") {
+                newRows.push({
+                  id: `DUP-${urlIndex}-${index}-invalid`,
+                  url: typeof item === "string" ? item : `unknown-${index}`,
+                  testType: "DUPLICATE",
+                  hasIssue: false,
+                  issueSummary:
+                    "Duplicate check returned unexpected item format from server.",
+                });
+                return;
+              }
+
+              if (item.error || item._error || item.errorMessage) {
+                newRows.push({
+                  id: `DUP-${urlIndex}-${index}-err-${simpleHash(
+                    String(item.url || item.bannerUrl || JSON.stringify(item))
+                  )}`,
+                  url:
+                    item.url ??
+                    item.bannerUrl ??
+                    urls[index] ??
+                    `unknown-${index}`,
+                  testType: "TIMEOUT",
+                  hasIssue: true,
+                  issueSummary:
+                    "Unable to access this page (connection timed out)",
+                });
+                return;
+              }
+
+              const bannerUrl = String(
+                item.bannerUrl ?? item.url ?? urls[index] ?? `unknown-${index}`
+              );
+              const frames = Array.isArray(item.frames) ? item.frames : [];
+              const flatDuplicates = Array.isArray(item.duplicates)
+                ? item.duplicates.map((d: any) => String(d))
+                : [];
+
+              const problemFrames = frames
+                .map((f: any) => {
+                  const duplicates = Array.isArray(f?.duplicates)
+                    ? f.duplicates.map((d: any) => String(d))
+                    : [];
+                  const frameUrl = f?.frameUrl ?? f?.frame ?? f?.url ?? "iframe";
+                  return { frameUrl, duplicates, hash: f?.hash };
+                })
+                .filter((f: any) => f.duplicates && f.duplicates.length > 1);
+
+              if (flatDuplicates.length > 1) {
+                problemFrames.unshift({
+                  frameUrl: "page",
+                  duplicates: flatDuplicates,
+                  hash: undefined,
+                });
+              }
+
+              const domainMap = new Map<string, Set<string>>();
+
+              const collectFromList = (urlList: string[]) => {
+                for (const u of urlList) {
+                  try {
+                    const nu = new URL(u);
+                    const host = nu.hostname;
+                    const parts = nu.pathname.split("/").filter(Boolean);
+                    const filename = parts.length ? parts[parts.length - 1] : "/";
+
+                    if (!domainMap.has(host)) domainMap.set(host, new Set());
+                    domainMap.get(host)!.add(filename);
+                  } catch {
+                    const host = "unknown";
+                    if (!domainMap.has(host)) domainMap.set(host, new Set());
+                    domainMap.get(host)!.add(u);
+                  }
+                }
+              };
+
+              problemFrames.forEach((pf: { duplicates: string[] }) =>
+                collectFromList(pf.duplicates)
+              );
+              let hasIssue = domainMap.size > 0;
+
+              let issueSummary = "-";
+              if (hasIssue) {
+                const lines: string[] = [];
+                for (const [host, filesSet] of domainMap.entries()) {
+                  const files = Array.from(filesSet);
+                  lines.push(`${host}:`);
+                  files.forEach((f) => {
+                    lines.push(`- ${f}`);
+                  });
+                  lines.push("");
+                }
+
+                issueSummary = lines.join("\n").trim();
+              } else {
+                issueSummary =
+                  item.summary ||
+                  item.message ||
+                  "No duplicated frames detected.";
+              }
+
+              const safeId = `DUP-${urlIndex}-${index}-${simpleHash(bannerUrl)}`;
+
               newRows.push({
-                id: `DUP-${index}-err-${simpleHash(
-                  String(item.url || item.bannerUrl || JSON.stringify(item))
-                )}`,
+                id: safeId,
+                url: bannerUrl,
+                testType: "DUPLICATE",
+                hasIssue,
+                issueSummary,
+              } as TestResultRow);
+            } catch (err: any) {
+              console.warn("dup mapping failed for item:", item, err);
+              newRows.push({
+                id: `DUP-${urlIndex}-${index}-fallback`,
                 url:
-                  item.url ??
-                  item.bannerUrl ??
+                  item?.bannerUrl ??
+                  item?.url ??
                   urls[index] ??
                   `unknown-${index}`,
                 testType: "DUPLICATE",
-                hasIssue: true,
-                issueSummary: `Server reported error: ${item.errorMessage ||
-                  item.error ||
-                  JSON.stringify(item._error)
-                  }`,
-              });
-              return;
-            }
-
-            const bannerUrl = String(
-              item.bannerUrl ?? item.url ?? urls[index] ?? `unknown-${index}`
-            );
-            const frames = Array.isArray(item.frames) ? item.frames : [];
-            const flatDuplicates = Array.isArray(item.duplicates)
-              ? item.duplicates.map((d: any) => String(d))
-              : [];
-
-            const problemFrames = frames
-              .map((f: any) => {
-                const duplicates = Array.isArray(f?.duplicates)
-                  ? f.duplicates.map((d: any) => String(d))
-                  : [];
-                const frameUrl = f?.frameUrl ?? f?.frame ?? f?.url ?? "iframe";
-                return { frameUrl, duplicates, hash: f?.hash };
-              })
-              .filter((f: any) => f.duplicates && f.duplicates.length > 1);
-
-            if (flatDuplicates.length > 1) {
-              problemFrames.unshift({
-                frameUrl: "page",
-                duplicates: flatDuplicates,
-                hash: undefined,
+                hasIssue: false,
+                issueSummary: `Could not parse duplicate result from server. (${err?.message ?? String(err)
+                  })`,
               });
             }
-
-            const domainMap = new Map<string, Set<string>>();
-
-            const collectFromList = (urlList: string[]) => {
-              for (const u of urlList) {
-                try {
-                  const nu = new URL(u);
-                  const host = nu.hostname;
-                  const parts = nu.pathname.split("/").filter(Boolean);
-                  const filename = parts.length ? parts[parts.length - 1] : "/";
-
-                  if (!domainMap.has(host)) domainMap.set(host, new Set());
-                  domainMap.get(host)!.add(filename);
-                } catch {
-                  const host = "unknown";
-                  if (!domainMap.has(host)) domainMap.set(host, new Set());
-                  domainMap.get(host)!.add(u);
-                }
-              }
-            };
-
-            problemFrames.forEach((pf: { duplicates: string[] }) =>
-              collectFromList(pf.duplicates)
-            );
-            let hasIssue = domainMap.size > 0;
-
-            let issueSummary = "-";
-            if (hasIssue) {
-              const lines: string[] = [];
-              for (const [host, filesSet] of domainMap.entries()) {
-                const files = Array.from(filesSet);
-                lines.push(`${host}:`);
-                files.forEach((f) => {
-                  lines.push(`- ${f}`);
-                });
-                lines.push("");
-              }
-
-              issueSummary = lines.join("\n").trim();
-            } else {
-              issueSummary =
-                item.summary ||
-                item.message ||
-                "No duplicated frames detected.";
-            }
-
-            const safeId = `DUP-${index}-${simpleHash(bannerUrl)}`;
-
-            newRows.push({
-              id: safeId,
-              url: bannerUrl,
-              testType: "DUPLICATE",
-              hasIssue,
-              issueSummary,
-            } as TestResultRow);
-          } catch (err: any) {
-            console.warn("dup mapping failed for item:", item, err);
-            newRows.push({
-              id: `DUP-${index}-fallback`,
-              url:
-                item?.bannerUrl ??
-                item?.url ??
-                urls[index] ??
-                `unknown-${index}`,
-              testType: "DUPLICATE",
-              hasIssue: false,
-              issueSummary: `Could not parse duplicate result from server. (${err?.message ?? String(err)
-                })`,
-            });
-          }
-        });
-      }
-
-      // ========== 3) SEO ==========
-      if (
-        checks.seo &&
-        seoResult?.results &&
-        Array.isArray(seoResult.results)
-      ) {
-        seoResult.results.forEach((item: any, index: number) => {
-          const url = item.rootUrl || item.originalUrl || urls[index] || "-";
-
-          let hasIssue = false;
-
-          const meta = item.meta || {};
-          const p1 = meta.priority1 || {};
-          const other = meta.other || {};
-          const canonical = meta.canonical || {};
-          const lang = meta.lang || {};
-          const h = meta.seoHints || {};
-          const headings = meta.headings || {};
-          const og = meta.openGraph || {};
-          const tw = meta.twitter || {};
-          const schema = meta.schema || {};
-          const links = meta.links || {};
-
-          const detailLines: string[] = [];
-
-          if (!item.reachable) {
-            hasIssue = true;
-            detailLines.push("[Basic] URL: ⛔ Not reachable");
-          } else {
-            detailLines.push("[Basic] URL: ✅ Reachable");
-          }
-
-          detailLines.push(`[Basic] charset: ${p1.charset || "⛔ Not found"}`);
-          detailLines.push(`[Basic] viewport: ${p1.viewport || "⛔ Not found"}`);
-          detailLines.push(`[Basic] title: ${p1.title || "⛔ Not found"}`);
-          detailLines.push(
-            `[Basic] description: ${p1.description || "⛔ Not found"}`
-          );
-          detailLines.push(
-            `[Basic] robots meta: ${p1.robots || "⛔ Not found"}`
-          );
-
-          detailLines.push(
-            `[Indexing] canonical: ${canonical.status || "⛔ missing"}`
-          );
-          detailLines.push(
-            `[Indexing] html lang: ${lang.htmlLang ? `✅ ${lang.htmlLang}` : "⛔ Not found"
-            }`
-          );
-          detailLines.push(
-            `[Indexing] robots.txt: ${other["robots.txt"] || "⛔ Not found"}`
-          );
-          detailLines.push(
-            `[Indexing] sitemap.xml: ${other["sitemap.xml"] || "⛔ Not found"}`
-          );
-
-          detailLines.push(
-            `[Structure] H1: ${headings.h1Count > 0
-              ? `✅ ${headings.h1Count} H1`
-              : "⛔ No H1 on page"
-            }`
-          );
-          detailLines.push(
-            `[Structure] Heading tags: H1=${headings.h1Count || 0}, H2=${headings.h2Count || 0
-            }, H3=${headings.h3Count || 0}`
-          );
-
-          if (
-            h &&
-            h.imageAltCoverage !== null &&
-            typeof h.imageAltCoverage === "number"
-          ) {
-            const percent = Math.round(h.imageAltCoverage * 100);
-            if (h.imageAltCoverage < 70) {
-              hasIssue = true;
-              detailLines.push(
-                `[Structure] image alt coverage: ⛔ Low (${percent}% of images have alt)`
-              );
-            } else {
-              detailLines.push(
-                `[Structure] image alt coverage: ✅ ${percent}% of images have alt`
-              );
-            }
-          }
-
-          detailLines.push(
-            `[Social] og:title: ${og["og:title"] || "⛔ Not found"}`
-          );
-          detailLines.push(
-            `[Social] og:description: ${og["og:description"] || "⛔ Not found"
-            }`
-          );
-          detailLines.push(
-            `[Social] og:image: ${og["og:image"] || "⛔ Not found"}`
-          );
-          detailLines.push(
-            `[Social] twitter:card: ${tw["twitter:card"] || "⛔ Not found"
-            }`
-          );
-          detailLines.push(
-            `[Social] twitter:title: ${tw["twitter:title"] || "⛔ Not found"
-            }`
-          );
-
-          detailLines.push(
-            `[Schema & Links] schema types: ${schema.types && schema.types.length
-              ? `✅ ${schema.types.join(", ")}`
-              : "⛔ Not found"
-            }`
-          );
-          detailLines.push(
-            `[Schema & Links] links: total ${links.total || 0} (internal: ${links.internal || 0
-            }, external: ${links.external || 0})`
-          );
-
-          if (h) {
-            if (typeof h.titleLength === "number") {
-              detailLines.push(
-                `[Quality] title length: ${h.titleLength
-                } characters (${h.titleLengthOk
-                  ? "✅ In recommended range"
-                  : "⛔ Should be adjusted"
-                })`
-              );
-              if (!h.titleLengthOk) hasIssue = true;
-            }
-            if (typeof h.descriptionLength === "number") {
-              detailLines.push(
-                `[Quality] description length: ${h.descriptionLength
-                } characters (${h.descriptionLengthOk
-                  ? "✅ In recommended range"
-                  : "⛔ Should be adjusted"
-                })`
-              );
-              if (!h.descriptionLengthOk) hasIssue = true;
-            }
-
-            if (!h.hasCanonical) hasIssue = true;
-            if (!h.hasHtmlLang) hasIssue = true;
-            if (!h.hasH1 || h.multipleH1) hasIssue = true;
-
-            detailLines.push(
-              `[Quality] Open Graph: ${h.hasOpenGraph ? "✅ present" : "⛔ missing"
-              }`
-            );
-            detailLines.push(
-              `[Quality] Twitter Card: ${h.hasTwitterCard ? "✅ present" : "⛔ missing"
-              }`
-            );
-            detailLines.push(
-              `[Quality] Structured Data (Schema): ${h.hasSchema ? "✅ present" : "⛔ missing"
-              }`
-            );
-          }
-
-          newRows.push({
-            id: `SEO-${index}`,
-            url,
-            testType: "SEO",
-            hasIssue,
-            issueSummary: detailLines.join(" | "),
           });
-        });
-      }
+        }
 
-      setRows(newRows);
-    } catch (err: any) {
-      console.error(err);
-      setError(t.home.errorOther);
-      setRows([]);
-    } finally {
-      setLoading(false);
+        // ========== 3) SEO ==========
+        if (
+          checks.seo &&
+          seoResult?.results &&
+          Array.isArray(seoResult.results)
+        ) {
+          seoResult.results.forEach((item: any, index: number) => {
+            const url = item.rootUrl || item.originalUrl || urls[index] || "-";
+
+            let hasIssue = false;
+
+            const meta = item.meta || {};
+            const p1 = meta.priority1 || {};
+            const other = meta.other || {};
+            const canonical = meta.canonical || {};
+            const lang = meta.lang || {};
+            const h = meta.seoHints || {};
+            const headings = meta.headings || {};
+            const og = meta.openGraph || {};
+            const tw = meta.twitter || {};
+            const schema = meta.schema || {};
+            const links = meta.links || {};
+
+            const detailLines: string[] = [];
+
+            if (!item.reachable) {
+              hasIssue = true;
+              detailLines.push("[Basic] URL: ⛔ Not reachable");
+            } else {
+              detailLines.push("[Basic] URL: ✅ Reachable");
+            }
+
+            detailLines.push(`[Basic] charset: ${p1.charset || "⛔ Not found"}`);
+            detailLines.push(`[Basic] viewport: ${p1.viewport || "⛔ Not found"}`);
+            detailLines.push(`[Basic] title: ${p1.title || "⛔ Not found"}`);
+            detailLines.push(
+              `[Basic] description: ${p1.description || "⛔ Not found"}`
+            );
+            detailLines.push(
+              `[Basic] robots meta: ${p1.robots || "⛔ Not found"}`
+            );
+
+            detailLines.push(
+              `[Indexing] canonical: ${canonical.status || "⛔ missing"}`
+            );
+            detailLines.push(
+              `[Indexing] html lang: ${lang.htmlLang ? `✅ ${lang.htmlLang}` : "⛔ Not found"
+              }`
+            );
+            detailLines.push(
+              `[Indexing] robots.txt: ${other["robots.txt"] || "⛔ Not found"}`
+            );
+            detailLines.push(
+              `[Indexing] sitemap.xml: ${other["sitemap.xml"] || "⛔ Not found"}`
+            );
+
+            detailLines.push(
+              `[Structure] H1: ${headings.h1Count > 0
+                ? `✅ ${headings.h1Count} H1`
+                : "⛔ No H1 on page"
+              }`
+            );
+            detailLines.push(
+              `[Structure] Heading tags: H1=${headings.h1Count || 0}, H2=${headings.h2Count || 0
+              }, H3=${headings.h3Count || 0}`
+            );
+
+            if (
+              h &&
+              h.imageAltCoverage !== null &&
+              typeof h.imageAltCoverage === "number"
+            ) {
+              const percent = Math.round(h.imageAltCoverage * 100);
+              if (h.imageAltCoverage < 70) {
+                hasIssue = true;
+                detailLines.push(
+                  `[Structure] image alt coverage: ⛔ Low (${percent}% of images have alt)`
+                );
+              } else {
+                detailLines.push(
+                  `[Structure] image alt coverage: ✅ ${percent}% of images have alt`
+                );
+              }
+            }
+
+            detailLines.push(
+              `[Social] og:title: ${og["og:title"] || "⛔ Not found"}`
+            );
+            detailLines.push(
+              `[Social] og:description: ${og["og:description"] || "⛔ Not found"
+              }`
+            );
+            detailLines.push(
+              `[Social] og:image: ${og["og:image"] || "⛔ Not found"}`
+            );
+            detailLines.push(
+              `[Social] twitter:card: ${tw["twitter:card"] || "⛔ Not found"
+              }`
+            );
+            detailLines.push(
+              `[Social] twitter:title: ${tw["twitter:title"] || "⛔ Not found"
+              }`
+            );
+
+            detailLines.push(
+              `[Schema & Links] schema types: ${schema.types && schema.types.length
+                ? `✅ ${schema.types.join(", ")}`
+                : "⛔ Not found"
+              }`
+            );
+            detailLines.push(
+              `[Schema & Links] links: total ${links.total || 0} (internal: ${links.internal || 0
+              }, external: ${links.external || 0})`
+            );
+
+            if (h) {
+              if (typeof h.titleLength === "number") {
+                detailLines.push(
+                  `[Quality] title length: ${h.titleLength
+                  } characters (${h.titleLengthOk
+                    ? "✅ In recommended range"
+                    : "⛔ Should be adjusted"
+                  })`
+                );
+                if (!h.titleLengthOk) hasIssue = true;
+              }
+              if (typeof h.descriptionLength === "number") {
+                detailLines.push(
+                  `[Quality] description length: ${h.descriptionLength
+                  } characters (${h.descriptionLengthOk
+                    ? "✅ In recommended range"
+                    : "⛔ Should be adjusted"
+                  })`
+                );
+                if (!h.descriptionLengthOk) hasIssue = true;
+              }
+
+              if (!h.hasCanonical) hasIssue = true;
+              if (!h.hasHtmlLang) hasIssue = true;
+              if (!h.hasH1 || h.multipleH1) hasIssue = true;
+
+              detailLines.push(
+                `[Quality] Open Graph: ${h.hasOpenGraph ? "✅ present" : "⛔ missing"
+                }`
+              );
+              detailLines.push(
+                `[Quality] Twitter Card: ${h.hasTwitterCard ? "✅ present" : "⛔ missing"
+                }`
+              );
+              detailLines.push(
+                `[Quality] Structured Data (Schema): ${h.hasSchema ? "✅ present" : "⛔ missing"
+                }`
+              );
+            }
+
+            newRows.push({
+              id: `SEO-${urlIndex}-${index}`,
+              url,
+              testType: "SEO",
+              hasIssue,
+              issueSummary: detailLines.join(" | "),
+            });
+          });
+        }
+        allRows.push(...newRows);
+
+      } catch (err) {
+        console.error("check-url failed:", url, err);
+        // ❌ ไม่ setRows([])
+      }
     }
+
+    // 🔥 SAVE TO DATABASE (server)
+    try {
+      await fetch("/api/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          auth_user_id: user.id,   // ⭐⭐ ใส่ตรงนี้
+          urls,
+          rawInput: urlsInput,
+          source: "web",
+          engineResult: {
+            has404: allRows.some(
+              (r) => r.testType === "404" && r.hasIssue
+            ),
+            hasDuplicate: allRows.some(
+              (r) => r.testType === "DUPLICATE" && r.hasIssue
+            ),
+            hasSeoIssues: allRows.some(
+              (r) => r.testType === "SEO" && r.hasIssue
+            ),
+            raw: {
+              rows: allRows,
+              checks,
+            },
+          },
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to save check to DB:", err);
+    }
+
+    // ✅ สำคัญมาก: ทำหลัง loop เท่านั้น
+    setRows(allRows);
+    setLoading(false);
   };
 
   return (
@@ -545,7 +686,7 @@ export default function Home() {
         </div>
       )}
 
-      {mode === "crawl" && crawlTree && (
+      {/* {mode === "crawl" && crawlTree && (
         <div className="w-full max-w-5xl mx-auto px-4 py-12">
           <div className="rounded-2xl shadow-xl border border-slate-200 bg-white p-6">
             <h2 className="font-bold mb-4">
@@ -555,7 +696,7 @@ export default function Home() {
             <CrawlTree nodes={[crawlTree]} />
           </div>
         </div>
-      )}
+      )} */}
 
       <InfoSection />
       <Footer />
