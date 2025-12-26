@@ -27,12 +27,24 @@ export async function POST(req: NextRequest) {
         // ===============================
         // 1️⃣ validation
         // ===============================
-        if (!auth_user_id) {
+        // ===============================
+        // 1️⃣ validation
+        // ===============================
+        if (source === "web" && !auth_user_id) {
             return NextResponse.json(
-                { error: "auth_user_id missing" },
+                { error: "auth_user_id missing (web)" },
                 { status: 400 }
             );
         }
+
+        if (source === "discord" && !auth_user_id) {
+            // ในกรณี discord เราใช้ auth_user_id เป็น discord_id
+            return NextResponse.json(
+                { error: "discord_id missing" },
+                { status: 400 }
+            );
+        }
+
 
         if (!Array.isArray(urls) || urls.length === 0) {
             return NextResponse.json(
@@ -47,20 +59,41 @@ export async function POST(req: NextRequest) {
                 { status: 400 }
             );
         }
-
+        
         // ===============================
         // 2️⃣ หา user
         // ===============================
         const supabaseAdmin = getSupabaseAdmin();
 
-        const { data: domainUser, error: userErr } = await supabaseAdmin
-            .from("users")
-            .select("id")
-            .eq("auth_user_id", auth_user_id)
-            .single();
+        let domainUser;
+        let userErr;
+
+        if (source === "web") {
+            // 🔵 WEB → ใช้ auth_user_id (Supabase Auth)
+            const res = await supabaseAdmin
+                .from("users")
+                .select("id")
+                .eq("auth_user_id", auth_user_id)
+                .single();
+
+            domainUser = res.data;
+            userErr = res.error;
+        }
+
+        if (source === "discord") {
+            // 🟣 DISCORD → ใช้ discord_id
+            const res = await supabaseAdmin
+                .from("users")
+                .select("id")
+                .eq("discord_id", auth_user_id) // 👈 auth_user_id = discord_id ที่ส่งมา
+                .single();
+
+            domainUser = res.data;
+            userErr = res.error;
+        }
 
         if (userErr || !domainUser) {
-            throw new Error("Domain user not found");
+            throw new Error(`Domain user not found for source=${source}`);
         }
 
         // ===============================
