@@ -18,15 +18,13 @@ export async function POST(req: NextRequest) {
 
         const {
             auth_user_id,
+            discord_id,
             urls,
             rawInput,
             source = "web",
             engineResult,
         } = body;
 
-        // ===============================
-        // 1️⃣ validation
-        // ===============================
         // ===============================
         // 1️⃣ validation
         // ===============================
@@ -59,7 +57,7 @@ export async function POST(req: NextRequest) {
                 { status: 400 }
             );
         }
-        
+
         // ===============================
         // 2️⃣ หา user
         // ===============================
@@ -85,7 +83,7 @@ export async function POST(req: NextRequest) {
             const res = await supabaseAdmin
                 .from("users")
                 .select("id")
-                .eq("discord_id", auth_user_id) // 👈 auth_user_id = discord_id ที่ส่งมา
+                .eq("discord_id", discord_id)
                 .single();
 
             domainUser = res.data;
