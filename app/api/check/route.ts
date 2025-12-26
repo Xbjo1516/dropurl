@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
             engineResult,
         } = body;
 
+        // ===============================
+        // 1️⃣ basic validation
+        // ===============================
         if (!auth_user_id) {
             return NextResponse.json(
                 { error: "auth_user_id missing" },
@@ -38,17 +41,19 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        if (!engineResult) {
+        // ❗ บังคับ engineResult เฉพาะ web
+        if (source === "web" && !engineResult) {
             return NextResponse.json(
-                { error: "engineResult is required" },
+                { error: "engineResult is required for web source" },
                 { status: 400 }
             );
         }
 
-        // ✅ ใช้ admin client เท่านั้น
+        // ===============================
+        // 2️⃣ หา domain user
+        // ===============================
         const supabaseAdmin = getSupabaseAdmin();
 
-        // 1️⃣ หา domain user จาก auth_user_id
         console.log("👤 fetching domain user...");
         const { data: domainUser, error: userErr } = await supabaseAdmin
             .from("users")
@@ -56,12 +61,13 @@ export async function POST(req: NextRequest) {
             .eq("auth_user_id", auth_user_id)
             .single();
 
-        console.log("👤 domainUser:", domainUser);
         if (userErr || !domainUser) {
             throw new Error("Domain user not found");
         }
 
-        // 2️⃣ create check
+        // ===============================
+        // 3️⃣ create check (ทุก source)
+        // ===============================
         console.log("📝 creating check...");
         const check = await createCheck({
             user_id: domainUser.id,
@@ -70,38 +76,42 @@ export async function POST(req: NextRequest) {
             urls,
         });
 
-        // 3️⃣ save engine result
-        console.log("⚙️ saving engine result...");
-        await saveEngineResult({
-            check_id: check.id,
-            has_404: engineResult.has404,
-            has_duplicate: engineResult.hasDuplicate,
-            has_seo_issues: engineResult.hasSeoIssues,
-            raw_result_json: engineResult.raw ?? {},
-        });
+        // ===============================
+        // 4️⃣ WEB → save engine only
+        // ===============================
+        if (source === "web") {
+            console.log("⚙️ saving engine result (web)");
 
-        // 4️⃣ AI summary
-        console.log("🤖 generating AI summary...");
-        const aiSummary = await summarizeWithAI({
-            urls,
-            has404: engineResult.has404,
-            hasDuplicate: engineResult.hasDuplicate,
-            hasSeoIssues: engineResult.hasSeoIssues,
-        });
+            await saveEngineResult({
+                check_id: check.id,
+                has_404: engineResult.has404,
+                has_duplicate: engineResult.hasDuplicate,
+                has_seo_issues: engineResult.hasSeoIssues,
+                raw_result_json: engineResult.raw ?? {},
+            });
+        }
 
-        // 5️⃣ save AI result
-        console.log("💾 saving AI result...");
-        await saveAiResult({
-            check_id: check.id,
-            ai_summary: aiSummary,
-        });
+        // ===============================
+        // 5️⃣ DISCORD → AI only
+        // ===============================
+        let aiSummary: string | null = null;
+
+        if (source === "discord") {
+            console.log("🤖 generating AI summary (discord)");
+            aiSummary = await summarizeWithAI({
+                urls,
+                has404: false,
+                hasDuplicate: false,
+                hasSeoIssues: false,
+            });
+        }
 
         console.log("🎉 /api/check SUCCESS");
 
         return NextResponse.json({
             success: true,
             check_id: check.id,
-            ai_summary: aiSummary,
+            source,
         });
     } catch (err: any) {
         console.error("🔥 POST /api/check FATAL ERROR:", err);
