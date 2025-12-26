@@ -116,12 +116,6 @@ export default function Home() {
   ) => {
     e.preventDefault();
 
-    if (!user) {
-      setError("Please login before checking URLs");
-      setLoading(false);
-      return;
-    }
-
     const urls = parseUrls(urlsInput);
 
     // 1️⃣ ไม่กรอก URL
@@ -627,35 +621,36 @@ export default function Home() {
       }
     }
 
-    // 🔥 SAVE TO DATABASE (server)
-    try {
-      await fetch("/api/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          auth_user_id: user.id,   // ⭐⭐ ใส่ตรงนี้
-          urls,
-          rawInput: urlsInput,
-          source: "web",
-          engineResult: {
-            has404: allRows.some(
-              (r) => r.testType === "404" && r.hasIssue
-            ),
-            hasDuplicate: allRows.some(
-              (r) => r.testType === "DUPLICATE" && r.hasIssue
-            ),
-            hasSeoIssues: allRows.some(
-              (r) => r.testType === "SEO" && r.hasIssue
-            ),
-            raw: {
-              rows: allRows,
-              checks,
+    if (user) {
+      try {
+        await fetch("/api/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            auth_user_id: user.id,
+            urls,
+            rawInput: urlsInput,
+            source: "web",
+            engineResult: {
+              has404: allRows.some(
+                (r) => r.testType === "404" && r.hasIssue
+              ),
+              hasDuplicate: allRows.some(
+                (r) => r.testType === "DUPLICATE" && r.hasIssue
+              ),
+              hasSeoIssues: allRows.some(
+                (r) => r.testType === "SEO" && r.hasIssue
+              ),
+              raw: {
+                rows: allRows,
+                checks,
+              },
             },
-          },
-        }),
-      });
-    } catch (err) {
-      console.error("Failed to save check to DB:", err);
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to save check to DB:", err);
+      }
     }
 
     // ✅ สำคัญมาก: ทำหลัง loop เท่านั้น
