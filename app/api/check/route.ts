@@ -35,8 +35,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        if (source === "discord" && !auth_user_id) {
-            // ในกรณี discord เราใช้ auth_user_id เป็น discord_id
+        if (source === "discord" && !discord_id) {
             return NextResponse.json(
                 { error: "discord_id missing" },
                 { status: 400 }
