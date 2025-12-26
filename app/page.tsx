@@ -187,6 +187,7 @@ export default function Home() {
 
     if (mode === "crawl") {
       if (!options) return;
+
       const res = await fetch("/api/crawl-check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -207,17 +208,36 @@ export default function Home() {
         return;
       }
 
-      const crawlItems = data.result?.results || [];
-      console.log("CRAWL ITEMS:", crawlItems);
-
-      // 1️⃣ เก็บไว้ใช้กับ CrawlTree (ของเดิม)
+      // ===============================
+      // 1️⃣ ใช้ crawlResults (ใหม่)
+      // ===============================
+      const crawlItems = data.crawlResults || [];
       setCrawlResults(crawlItems);
 
-
-      // 2️⃣ แปลง crawl → table rows (เฉพาะ 404)
+      // 2️⃣ แสดงผลตาราง
       const crawlRows = mapCrawlToRows(crawlItems);
       setRows(crawlRows);
-      console.log("CRAWL 404 ROWS:", crawlItems);
+
+      // ===============================
+      // 3️⃣ 👉 SAVE DB ตรงนี้ (สำคัญ)
+      // ===============================
+      if (user && data.engineResult) {
+        try {
+          await fetch("/api/check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              auth_user_id: user.id,
+              urls: [urls[0]],
+              rawInput: urls[0],
+              source: "web",
+              engineResult: data.engineResult, // 👈 crawl ถูก save ตรงนี้
+            }),
+          });
+        } catch (err) {
+          console.error("Failed to save crawl check:", err);
+        }
+      }
 
       setLoading(false);
       return;
