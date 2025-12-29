@@ -104,42 +104,47 @@ export async function POST(req: NextRequest) {
         });
 
         // ===============================
-        // 4️⃣ save ENGINE result (ทุก source)
+        // 4️⃣ save ENGINE result
         // ===============================
-        await saveEngineResult({
-            check_id: check.id,
-            has_404: engineResult.has404,
-            has_duplicate: engineResult.hasDuplicate,
-            has_seo_issues: engineResult.hasSeoIssues,
-            raw_result_json: engineResult.raw ?? {},
-        });
+        if (source === "web") {
+            await saveEngineResult({
+                check_id: check.id,
+                has_404: engineResult.has404,
+                has_duplicate: engineResult.hasDuplicate,
+                has_seo_issues: engineResult.hasSeoIssues,
+                raw_result_json: engineResult.raw ?? {},
+            });
+        }
+
         // ===============================
         // 5️⃣ generate + save AI result
         // ===============================
-        const aiSummary = await summarizeWithAI({
-            urls,
-            has404: engineResult.has404,
-            hasDuplicate: engineResult.hasDuplicate,
-            hasSeoIssues: engineResult.hasSeoIssues,
-        });
-
-        const aiRawResult = {
-            source,
-            result_type: "ai",
-            urls,
-            flags: {
+        if (source === "discord") {
+            const aiSummary = await summarizeWithAI({
+                urls,
                 has404: engineResult.has404,
                 hasDuplicate: engineResult.hasDuplicate,
                 hasSeoIssues: engineResult.hasSeoIssues,
-            },
-            engine_snapshot: engineResult.raw ?? {},
-        };
+            });
 
-        await saveAiResult({
-            check_id: check.id,
-            ai_summary: aiSummary,
-            raw_result_json: aiRawResult,
-        });
+            const aiRawResult = {
+                source,
+                result_type: "ai",
+                urls,
+                flags: {
+                    has404: engineResult.has404,
+                    hasDuplicate: engineResult.hasDuplicate,
+                    hasSeoIssues: engineResult.hasSeoIssues,
+                },
+                engine_snapshot: engineResult.raw ?? {},
+            };
+
+            await saveAiResult({
+                check_id: check.id,
+                ai_summary: aiSummary,
+                raw_result_json: aiRawResult,
+            });
+        }
 
         console.log("🎉 /api/check SUCCESS");
 
