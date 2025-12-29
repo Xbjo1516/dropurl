@@ -94,7 +94,7 @@ const en = {
     description: "Configure integration so users can send URLs in Discord and DropURL will analyze and summarize with AI.",
 
     loginRequired: "You have not connected your Discord account to DropURL",
-    loginInfo: "Please log in with Discord to enable Webhook / Bot Token setup and Discord bot integration.",
+    loginInfo: "Please log in with Discord before using Droppy.",
     loginButton: "Login with Discord",
 
     connectedAs: "Connected as",

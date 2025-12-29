@@ -94,7 +94,7 @@ const th = {
     description: "ตั้งค่าการเชื่อมต่อระหว่างบอท Discord กับ DropURL เพื่อให้ผู้ใช้ส่งลิงก์ใน Discord แล้วรับผลสรุปจาก AI",
 
     loginRequired: "คุณยังไม่ได้เชื่อมบัญชี Discord เข้ากับ DropURL",
-    loginInfo: "กรุณาล็อกอินด้วย Discord ก่อน จากนั้นจึงจะสามารถตั้งค่า Webhook / Bot Token และใช้งานได้",
+    loginInfo: "กรุณาล็อกอินด้วย Discord ก่อน จากนั้นจึงจะใช้งาน Droppy ได้",
     loginButton: "เข้าสู่ระบบด้วย Discord",
 
     connectedAs: "เชื่อมต่อแล้วในชื่อ",
