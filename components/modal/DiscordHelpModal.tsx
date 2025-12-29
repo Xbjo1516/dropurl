@@ -189,8 +189,8 @@ export function DiscordHelpModal({ open, onClose }: DiscordHelpModalProps) {
                     </code>{" "}
                     –{" "}
                     {lang === "th"
-                      ? "ให้บอทตรวจลิงก์นี้ (404 / Duplicate / SEO) แล้วสรุปผลเป็นข้อความยาวอ่านง่าย"
-                      : "Ask the bot to scan this URL (404 / Duplicate / SEO) and send a detailed summary."}
+                      ? "ให้บอทตรวจลิงก์นี้ (404 / Duplicate / SEO)"
+                      : "Ask the bot to scan this URL (404 / Duplicate / SEO)."}
                   </li>
                   <li>
                     <code className="px-1 py-0.5 rounded bg-base-200">

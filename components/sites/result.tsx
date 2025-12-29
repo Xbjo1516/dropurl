@@ -13,6 +13,7 @@ export type TestResultRow = ExportRowType & {
 
 type ResultTableProps = {
   rows: TestResultRow[];
+  isCrawl?: boolean;
 };
 
 type FilterType = "all" | "404" | "duplicate" | "seo";
@@ -39,7 +40,11 @@ function getHostname(u: string): string {
   }
 }
 
-export default function ResultTable({ rows }: ResultTableProps) {
+export default function ResultTable({
+  rows,
+  isCrawl = false,
+}: ResultTableProps) {
+
   const { t } = useLang();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -166,146 +171,150 @@ export default function ResultTable({ rows }: ResultTableProps) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Mobile hamburger filter */}
-          <div className="sm:hidden">
-            <div className="dropdown dropdown-start">
-              <label
-                tabIndex={0}
-                className="btn btn-ghost btn-square btn-xs"
-                aria-label={t.result.menuLabel ?? "Open menu"}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden
+          {!isCrawl && (
+            <div className="sm:hidden">
+              <div className="dropdown dropdown-start">
+                <label
+                  tabIndex={0}
+                  className="btn btn-ghost btn-square btn-xs"
+                  aria-label={t.result.menuLabel ?? "Open menu"}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              </label>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                </label>
 
-              <ul
-                tabIndex={0}
-                className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56 mt-2 text-sm"
-                style={{ minWidth: 220 }}
-              >
-                <li className="menu-title px-2">
-                  <span className="text-xs font-semibold text-slate-600">
-                    {t.result.filterLabel}
-                  </span>
-                </li>
+                <ul
+                  tabIndex={0}
+                  className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56 mt-2 text-sm"
+                  style={{ minWidth: 220 }}
+                >
+                  <li className="menu-title px-2">
+                    <span className="text-xs font-semibold text-slate-600">
+                      {t.result.filterLabel}
+                    </span>
+                  </li>
 
-                <li>
-                  <button
-                    className={`text-left w-full ${filterType === "all" ? "font-semibold text-primary" : ""
-                      }`}
-                    onClick={() => changeFilter("all")}
-                  >
-                    {t.result.filterAll}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`text-left w-full ${filterType === "404" ? "font-semibold text-primary" : ""
-                      }`}
-                    onClick={() => changeFilter("404")}
-                  >
-                    {t.result.filter404}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`text-left w-full ${filterType === "duplicate"
-                      ? "font-semibold text-primary"
-                      : ""
-                      }`}
-                    onClick={() => changeFilter("duplicate")}
-                  >
-                    {t.result.filterDuplicate}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`text-left w-full ${filterType === "seo" ? "font-semibold text-primary" : ""
-                      }`}
-                    onClick={() => changeFilter("seo")}
-                  >
-                    {t.result.filterSeo}
-                  </button>
-                </li>
+                  <li>
+                    <button
+                      className={`text-left w-full ${filterType === "all" ? "font-semibold text-primary" : ""
+                        }`}
+                      onClick={() => changeFilter("all")}
+                    >
+                      {t.result.filterAll}
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={`text-left w-full ${filterType === "404" ? "font-semibold text-primary" : ""
+                        }`}
+                      onClick={() => changeFilter("404")}
+                    >
+                      {t.result.filter404}
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={`text-left w-full ${filterType === "duplicate"
+                        ? "font-semibold text-primary"
+                        : ""
+                        }`}
+                      onClick={() => changeFilter("duplicate")}
+                    >
+                      {t.result.filterDuplicate}
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={`text-left w-full ${filterType === "seo" ? "font-semibold text-primary" : ""
+                        }`}
+                      onClick={() => changeFilter("seo")}
+                    >
+                      {t.result.filterSeo}
+                    </button>
+                  </li>
 
-                <li className="border-t border-slate-200" />
+                  <li className="border-t border-slate-200" />
 
-                <li>
-                  <button
-                    className="text-left w-full"
-                    onClick={() => {
-                      const visible = filteredRows.map((r) => r.id);
-                      setSelectedIds((prev) =>
-                        Array.from(new Set([...prev, ...visible]))
-                      );
-                    }}
-                  >
-                    {t.result.selectVisible || "Select visible"}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="text-left w-full"
-                    onClick={() => setSelectedIds([])}
-                  >
-                    {t.result.clearSelection || "Clear selection"}
-                  </button>
-                </li>
-              </ul>
+                  <li>
+                    <button
+                      className="text-left w-full"
+                      onClick={() => {
+                        const visible = filteredRows.map((r) => r.id);
+                        setSelectedIds((prev) =>
+                          Array.from(new Set([...prev, ...visible]))
+                        );
+                      }}
+                    >
+                      {t.result.selectVisible || "Select visible"}
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className="text-left w-full"
+                      onClick={() => setSelectedIds([])}
+                    >
+                      {t.result.clearSelection || "Clear selection"}
+                    </button>
+                  </li>
+                </ul>
+              </div>
             </div>
-          </div>
+          )}
 
           <h2 className="text-sm font-semibold text-slate-700">
             {t.result.title}
           </h2>
 
-          <div className="hidden sm:block ml-2">
-            <div className="dropdown dropdown-end">
-              <button
-                tabIndex={0}
-                type="button"
-                className="btn btn-sm btn-ghost border border-slate-200 normal-case text-[11px] h-8 min-h-0 w-36 text-left"
-              >
-                <span className="mr-1">{t.result.filterLabel}:</span>
-                <span className="font-semibold">
-                  {filterLabelMap[filterType]}
-                </span>
-              </button>
+          {!isCrawl && (
+            <div className="hidden sm:block ml-2">
+              <div className="dropdown dropdown-end">
+                <button
+                  tabIndex={0}
+                  type="button"
+                  className="btn btn-sm btn-ghost border border-slate-200 normal-case text-[11px] h-8 min-h-0 w-36 text-left"
+                >
+                  <span className="mr-1">{t.result.filterLabel}:</span>
+                  <span className="font-semibold">
+                    {filterLabelMap[filterType]}
+                  </span>
+                </button>
 
-              <ul
-                tabIndex={0}
-                className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-36 mt-2 text-[11px] z-10"
-              >
-                {(["all", "404", "duplicate", "seo"] as FilterType[]).map(
-                  (ft) => (
-                    <li key={ft}>
-                      <button
-                        type="button"
-                        className={
-                          filterType === ft ? "font-semibold text-primary" : ""
-                        }
-                        onClick={() => setFilterType(ft)}
-                      >
-                        {filterLabelMap[ft]}
-                      </button>
-                    </li>
-                  )
-                )}
-              </ul>
+                <ul
+                  tabIndex={0}
+                  className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-36 mt-2 text-[11px] z-10"
+                >
+                  {(["all", "404", "duplicate", "seo"] as FilterType[]).map(
+                    (ft) => (
+                      <li key={ft}>
+                        <button
+                          type="button"
+                          className={
+                            filterType === ft ? "font-semibold text-primary" : ""
+                          }
+                          onClick={() => setFilterType(ft)}
+                        >
+                          {filterLabelMap[ft]}
+                        </button>
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

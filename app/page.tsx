@@ -696,7 +696,8 @@ export default function Home() {
       {rows.length > 0 && (
         <div className="w-full max-w-5xl mx-auto px-4 py-12">
           <div className="rounded-2xl shadow-xl border border-slate-200 bg-white p-6">
-            <ResultTable rows={rows} />
+            <ResultTable rows={rows}
+            isCrawl={mode === "crawl"} />
           </div>
         </div>
       )}
