@@ -103,6 +103,7 @@ export async function saveEngineResult(params: {
 export async function saveAiResult(params: {
     check_id: number;
     ai_summary: string;
+    raw_result_json?: any;
     status?: "success" | "error";
 }) {
     const supabaseAdmin = getSupabaseAdmin();
@@ -114,6 +115,7 @@ export async function saveAiResult(params: {
             result_type: "ai",
             status: params.status ?? "success",
             ai_summary: params.ai_summary,
+            raw_result_json:params.raw_result_json,
         })
         .select()
         .single();

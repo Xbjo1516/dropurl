@@ -113,7 +113,6 @@ export async function POST(req: NextRequest) {
             has_seo_issues: engineResult.hasSeoIssues,
             raw_result_json: engineResult.raw ?? {},
         });
-
         // ===============================
         // 5️⃣ generate + save AI result
         // ===============================
@@ -124,9 +123,22 @@ export async function POST(req: NextRequest) {
             hasSeoIssues: engineResult.hasSeoIssues,
         });
 
+        const aiRawResult = {
+            source,
+            result_type: "ai",
+            urls,
+            flags: {
+                has404: engineResult.has404,
+                hasDuplicate: engineResult.hasDuplicate,
+                hasSeoIssues: engineResult.hasSeoIssues,
+            },
+            engine_snapshot: engineResult.raw ?? {},
+        };
+
         await saveAiResult({
             check_id: check.id,
             ai_summary: aiSummary,
+            raw_result_json: aiRawResult,
         });
 
         console.log("🎉 /api/check SUCCESS");
