@@ -6,6 +6,7 @@ import {
     saveAiResult,
 } from "@/lib/checks";
 import { summarizeWithAI } from "@/lib/ai";
+import { notifyCheckCompleted } from "@/lib/notifyDiscord";
 
 export const dynamic = "force-dynamic";
 
@@ -147,6 +148,15 @@ export async function POST(req: NextRequest) {
         }
 
         console.log("🎉 /api/check SUCCESS");
+
+        // ===============================
+        // 🔔 6️⃣ notify discord
+        // ===============================
+        try {
+            void notifyCheckCompleted(check.id);
+        } catch (e) {
+            console.error("Discord notify failed", e);
+        }
 
         return NextResponse.json({
             success: true,
