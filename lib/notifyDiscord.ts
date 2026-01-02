@@ -24,9 +24,27 @@ export async function notifyCheckCompleted(check_id: number) {
         .eq("id", check.user_id)
         .single();
 
+    // ===============================
+    // 🧭 Overall status (สำคัญมาก)
+    // ===============================
+    const overallStatus =
+        result?.has_404
+            ? "🔴 Critical – 404 issues found"
+            : result?.has_seo_issue
+                ? "🟡 Needs Attention – SEO issues"
+                : result?.has_duplicate
+                    ? "🟠 Minor Issues – Duplicate detected"
+                    : "🟢 Healthy – No major issues";
+
+    // ===============================
+    // 🌐 Source label (friendly)
+    // ===============================
+    const sourceLabel =
+        check.source === "web" ? "🌐 From Web" : "🤖 From Discord";
+
     await sendDiscordMessage({
         title: "✅ DropURL – Check Completed",
-        description: `Source: **${check.source}**`,
+        description: sourceLabel,
         fields: [
             {
                 name: "👤 User",
@@ -39,16 +57,16 @@ export async function notifyCheckCompleted(check_id: number) {
                 value: String(check.urls).slice(0, 900),
             },
             {
+                name: "🧭 Overall Status",
+                value: overallStatus,
+            },
+            {
                 name: "📊 Results",
                 value: `
 404: ${result?.has_404 ? "❌ Found" : "✅ OK"}
-Duplicate: ${result?.has_duplicate ? "⚠️ Found" : "✅ OK"}
 SEO: ${result?.has_seo_issue ? "⚠️ Issues" : "✅ OK"}
-      `.slice(0, 900),
-            },
-            {
-                name: "🧠 AI Summary",
-                value: (result?.ai_summary || "-").slice(0, 800),
+Duplicate: ${result?.has_duplicate ? "⚠️ Found" : "✅ OK"}
+        `.slice(0, 900),
             },
         ],
     });
