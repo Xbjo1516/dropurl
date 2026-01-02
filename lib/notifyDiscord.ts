@@ -36,7 +36,7 @@ export async function notifyCheckCompleted(check_id: number) {
             },
             {
                 name: "🔗 URLs",
-                value: check.urls,
+                value: String(check.urls).slice(0, 900),
             },
             {
                 name: "📊 Results",
@@ -44,11 +44,11 @@ export async function notifyCheckCompleted(check_id: number) {
 404: ${result?.has_404 ? "❌ Found" : "✅ OK"}
 Duplicate: ${result?.has_duplicate ? "⚠️ Found" : "✅ OK"}
 SEO: ${result?.has_seo_issue ? "⚠️ Issues" : "✅ OK"}
-        `,
+      `.slice(0, 900),
             },
             {
                 name: "🧠 AI Summary",
-                value: result?.ai_summary || "-",
+                value: (result?.ai_summary || "-").slice(0, 800),
             },
         ],
     });
