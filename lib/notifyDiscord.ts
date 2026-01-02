@@ -52,21 +52,30 @@ export async function notifyCheckCompleted(check_id: number) {
                     ? `@${user.discord_username}`
                     : "Unknown user",
             },
+
+            { name: "\u200B", value: "\u200B" },
+
             {
                 name: "🔗 URLs",
                 value: String(check.urls).slice(0, 900),
             },
+
+            { name: "\u200B", value: "\u200B" },
+
             {
                 name: "🧭 Overall Status",
                 value: overallStatus,
             },
+
+            { name: "\u200B", value: "\u200B" },
+
             {
                 name: "📊 Results",
-                value: `
-404: ${result?.has_404 ? "❌ Found" : "✅ OK"}
-SEO: ${result?.has_seo_issue ? "⚠️ Issues" : "✅ OK"}
-Duplicate: ${result?.has_duplicate ? "⚠️ Found" : "✅ OK"}
-        `.slice(0, 900),
+                value: [
+                    `• **404**: ${result?.has_404 ? "❌ Found" : "✅ OK"}`,
+                    `• **SEO**: ${result?.has_seo_issue ? "⚠️ Issues" : "✅ OK"}`,
+                    `• **Duplicate**: ${result?.has_duplicate ? "⚠️ Found" : "✅ OK"}`,
+                ].join("\n"),
             },
         ],
     });
