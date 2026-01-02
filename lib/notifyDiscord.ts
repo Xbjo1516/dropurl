@@ -47,27 +47,17 @@ export async function notifyCheckCompleted(check_id: number) {
         description: sourceLabel,
         fields: [
             {
-                name: "👤 User",
-                value: user?.discord_username
-                    ? `@${user.discord_username}`
-                    : "Unknown user",
+                name: "👤 User / 🔗 URLs",
+                value: [
+                    `**User:** ${user?.discord_username ? `@${user.discord_username}` : "Unknown user"}`,
+                    `**URLs:** ${String(check.urls).slice(0, 700)}`
+                ].join("\n"),
             },
-
-            { name: "\u200B", value: "\u200B" },
-
-            {
-                name: "🔗 URLs",
-                value: String(check.urls).slice(0, 900),
-            },
-
-            { name: "\u200B", value: "\u200B" },
 
             {
                 name: "🧭 Overall Status",
                 value: overallStatus,
             },
-
-            { name: "\u200B", value: "\u200B" },
 
             {
                 name: "📊 Results",
