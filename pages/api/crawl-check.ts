@@ -1,8 +1,7 @@
 // pages/api/crawl-check.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const DROPURL_WORKER_URL = process.env.DROPURL_WORKER_URL; 
-// เช่น https://dropurl-worker-production.up.railway.app
+const DROPURL_WORKER_URL = process.env.DROPURL_WORKER_URL;
 
 export default async function handler(
   req: NextApiRequest,
@@ -20,14 +19,16 @@ export default async function handler(
   }
 
   try {
+    // 1️⃣ call worker
     const resp = await fetch(`${DROPURL_WORKER_URL}/crawl-check`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req.body),
     });
 
-    const text = await resp.text(); // 👈 ป้องกัน JSON พัง
+    const text = await resp.text();
     let data: any;
+
     try {
       data = JSON.parse(text);
     } catch {
@@ -38,7 +39,39 @@ export default async function handler(
       });
     }
 
-    return res.status(resp.status).json(data);
+    if (!resp.ok || data?.error) {
+      return res.status(resp.status).json(data);
+    }
+
+    // 2️⃣ extract crawl results
+    const crawlResults = data?.result?.results ?? [];
+
+    // 3️⃣ derive simple flags
+    const has404 = crawlResults.some(
+      (item: any) => item.status === 404
+    );
+
+    // 4️⃣ pack as engineResult (สำคัญมาก)
+    const engineResult = {
+      type: "crawl",
+      has404,
+      hasDuplicate: false,
+      hasSeoIssues: false,
+      raw: {
+        crawlResults,
+        crawlMeta: {
+          maxDepth: req.body?.maxDepth,
+          sameDomainOnly: req.body?.sameDomainOnly,
+        },
+      },
+    };
+
+    // 5️⃣ return to frontend
+    return res.status(200).json({
+      error: false,
+      engineResult,
+      crawlResults, // เผื่อ frontend ใช้ render tree / table
+    });
   } catch (err: any) {
     console.error("crawl-check proxy failed:", err);
     return res.status(500).json({

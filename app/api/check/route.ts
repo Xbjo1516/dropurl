@@ -6,6 +6,7 @@ import {
     saveAiResult,
 } from "@/lib/checks";
 import { summarizeWithAI } from "@/lib/ai";
+import { notifyCheckCompleted } from "@/lib/notifyDiscord";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
 
         const {
             auth_user_id,
+            discord_id,
             urls,
             rawInput,
             source = "web",
@@ -25,14 +27,22 @@ export async function POST(req: NextRequest) {
         } = body;
 
         // ===============================
-        // 1️⃣ basic validation
+        // 1️⃣ validation
         // ===============================
-        if (!auth_user_id) {
+        if (source === "web" && !auth_user_id) {
             return NextResponse.json(
-                { error: "auth_user_id missing" },
+                { error: "auth_user_id missing (web)" },
                 { status: 400 }
             );
         }
+
+        if (source === "discord" && !discord_id) {
+            return NextResponse.json(
+                { error: "discord_id missing" },
+                { status: 400 }
+            );
+        }
+
 
         if (!Array.isArray(urls) || urls.length === 0) {
             return NextResponse.json(
@@ -41,47 +51,63 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // ❗ บังคับ engineResult เฉพาะ web
-        if (source === "web" && !engineResult) {
+        if (!engineResult) {
             return NextResponse.json(
-                { error: "engineResult is required for web source" },
+                { error: "engineResult is required" },
                 { status: 400 }
             );
         }
 
         // ===============================
-        // 2️⃣ หา domain user
+        // 2️⃣ หา user
         // ===============================
         const supabaseAdmin = getSupabaseAdmin();
 
-        console.log("👤 fetching domain user...");
-        const { data: domainUser, error: userErr } = await supabaseAdmin
-            .from("users")
-            .select("id")
-            .eq("auth_user_id", auth_user_id)
-            .single();
+        let domainUser;
+        let userErr;
+
+        if (source === "web") {
+            // 🔵 WEB → ใช้ auth_user_id (Supabase Auth)
+            const res = await supabaseAdmin
+                .from("users")
+                .select("id")
+                .eq("auth_user_id", auth_user_id)
+                .single();
+
+            domainUser = res.data;
+            userErr = res.error;
+        }
+
+        if (source === "discord") {
+            // 🟣 DISCORD → ใช้ discord_id
+            const res = await supabaseAdmin
+                .from("users")
+                .select("id")
+                .eq("discord_id", discord_id)
+                .single();
+
+            domainUser = res.data;
+            userErr = res.error;
+        }
 
         if (userErr || !domainUser) {
-            throw new Error("Domain user not found");
+            throw new Error(`Domain user not found for source=${source}`);
         }
 
         // ===============================
-        // 3️⃣ create check (ทุก source)
+        // 3️⃣ create checks
         // ===============================
-        console.log("📝 creating check...");
         const check = await createCheck({
             user_id: domainUser.id,
-            source,
+            source,              // web | discord
             raw_input: rawInput ?? null,
             urls,
         });
 
         // ===============================
-        // 4️⃣ WEB → save engine only
+        // 4️⃣ save ENGINE result
         // ===============================
         if (source === "web") {
-            console.log("⚙️ saving engine result (web)");
-
             await saveEngineResult({
                 check_id: check.id,
                 has_404: engineResult.has404,
@@ -92,21 +118,45 @@ export async function POST(req: NextRequest) {
         }
 
         // ===============================
-        // 5️⃣ DISCORD → AI only
+        // 5️⃣ generate + save AI result
         // ===============================
-        let aiSummary: string | null = null;
-
         if (source === "discord") {
-            console.log("🤖 generating AI summary (discord)");
-            aiSummary = await summarizeWithAI({
+            const aiSummary = await summarizeWithAI({
                 urls,
-                has404: false,
-                hasDuplicate: false,
-                hasSeoIssues: false,
+                has404: engineResult.has404,
+                hasDuplicate: engineResult.hasDuplicate,
+                hasSeoIssues: engineResult.hasSeoIssues,
+            });
+
+            const aiRawResult = {
+                source,
+                result_type: "ai",
+                urls,
+                flags: {
+                    has404: engineResult.has404,
+                    hasDuplicate: engineResult.hasDuplicate,
+                    hasSeoIssues: engineResult.hasSeoIssues,
+                },
+                engine_snapshot: engineResult.raw ?? {},
+            };
+
+            await saveAiResult({
+                check_id: check.id,
+                ai_summary: aiSummary,
+                raw_result_json: aiRawResult,
             });
         }
 
         console.log("🎉 /api/check SUCCESS");
+
+        // ===============================
+        // 🔔 6️⃣ notify discord
+        // ===============================
+        try {
+            void notifyCheckCompleted(check.id);
+        } catch (e) {
+            console.error("Discord notify failed", e);
+        }
 
         return NextResponse.json({
             success: true,
@@ -114,7 +164,7 @@ export async function POST(req: NextRequest) {
             source,
         });
     } catch (err: any) {
-        console.error("🔥 POST /api/check FATAL ERROR:", err);
+        console.error("🔥 POST /api/check ERROR:", err);
         return NextResponse.json(
             { error: "Internal server error", message: err?.message },
             { status: 500 }
