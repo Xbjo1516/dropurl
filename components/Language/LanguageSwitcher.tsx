@@ -4,6 +4,7 @@ import { useLang } from "./LanguageProvider";
 import { useState } from "react";
 
 export function LanguageSwitcher() {
+  const { t } = useLang();
   const { lang, setLang } = useLang();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -35,7 +36,7 @@ export function LanguageSwitcher() {
           onClick={() => setMobileOpen((v) => !v)}
         >
           <span className="flex items-center gap-2">
-            🌐 <span>ภาษา</span>
+            🌐 <span>{t.navbar.language}</span>
           </span>
           <span>{mobileOpen ? "▲" : "▼"}</span>
         </button>
@@ -45,18 +46,16 @@ export function LanguageSwitcher() {
             <button
               type="button"
               onClick={() => setLang("th")}
-              className={`block w-full text-left text-xs px-2 py-1 rounded-md hover:bg-base-200 ${
-                lang === "th" ? "bg-base-300 font-semibold" : ""
-              }`}
+              className={`block w-full text-left text-xs px-2 py-1 rounded-md hover:bg-base-200 ${lang === "th" ? "bg-base-300 font-semibold" : ""
+                }`}
             >
               ไทย
             </button>
             <button
               type="button"
               onClick={() => setLang("en")}
-              className={`block w-full text-left text-xs px-2 py-1 rounded-md hover:bg-base-200 ${
-                lang === "en" ? "bg-base-300 font-semibold" : ""
-              }`}
+              className={`block w-full text-left text-xs px-2 py-1 rounded-md hover:bg-base-200 ${lang === "en" ? "bg-base-300 font-semibold" : ""
+                }`}
             >
               English
             </button>

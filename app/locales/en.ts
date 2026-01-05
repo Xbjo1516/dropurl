@@ -3,6 +3,8 @@ const en = {
     logo: "DURL Checker",
     theme: "Theme",
     language: "Language",
+    logout: "Logout",
+    login: "Login with Discord",
   },
   home: {
     title: "URL Link Verification & SEO Audit",
@@ -17,7 +19,6 @@ const en = {
     errorDuplicate: "There are duplicate URLs in the list",
     errorNotFound: "One or more links are not found or do not exist",
     errorOther: "An error occurred with the URL(s). Please try again.",
-    error: "Please enter at least 1 URL",
   },
   result: {
     title: "Test results",
@@ -158,7 +159,7 @@ const en = {
       "These Terms & Conditions shall be governed by and construed in accordance with the laws of Thailand.",
 
     s9_title: "9. Contact",
-    s9_desc: "If you have any questions regarding these Terms, please contact us at",
+    s9_desc: "If you have any questions regarding these Terms, please contact us at ",
   },
   privacy: {
     title: "Privacy Policy",
