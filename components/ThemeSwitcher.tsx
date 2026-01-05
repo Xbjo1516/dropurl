@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLang } from "@/components/Language/LanguageProvider";
 
 const THEMES = [
   // "light",
@@ -38,6 +39,7 @@ const THEMES = [
 ];
 
 export function ThemeSwitcher() {
+  const { t } = useLang();
   const [theme, setTheme] = useState<string>("cupcake");
   const [mobileOpen, setMobileOpen] = useState(false); // <- ใช้เฉพาะจอเล็ก
 
@@ -61,7 +63,7 @@ export function ThemeSwitcher() {
       <div className="dropdown dropdown-end hidden md:block">
         <button tabIndex={0} className="btn btn-ghost btn-sm normal-case">
           <span className="mr-1">🎨</span>
-          themes
+          {t.navbar.theme}
         </button>
         <ul
           tabIndex={0}
@@ -89,7 +91,7 @@ export function ThemeSwitcher() {
           onClick={() => setMobileOpen((v) => !v)}
         >
           <span className="flex items-center gap-2">
-            🎨 <span>ธีม / สีของหน้า</span>
+            🎨 <span>{t.navbar.theme}</span>
           </span>
           <span>{mobileOpen ? "▲" : "▼"}</span>
         </button>
@@ -102,9 +104,8 @@ export function ThemeSwitcher() {
                 key={t}
                 type="button"
                 onClick={() => changeTheme(t)}
-                className={`w-full text-left text-xs px-2 py-1 rounded-md hover:bg-base-200 ${
-                  theme === t ? "bg-base-300 font-semibold" : ""
-                }`}
+                className={`w-full text-left text-xs px-2 py-1 rounded-md hover:bg-base-200 ${theme === t ? "bg-base-300 font-semibold" : ""
+                  }`}
               >
                 {t}
               </button>
