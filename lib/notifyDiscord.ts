@@ -59,14 +59,14 @@ export async function notifyCheckCompleted(check_id: number) {
                 value: overallStatus,
             },
 
-            {
-                name: "📊 Results",
-                value: [
-                    `• **404**: ${result?.has_404 ? "❌ Found" : "✅ OK"}`,
-                    `• **SEO**: ${result?.has_seo_issue ? "⚠️ Issues" : "✅ OK"}`,
-                    `• **Duplicate**: ${result?.has_duplicate ? "⚠️ Found" : "✅ OK"}`,
-                ].join("\n"),
-            },
+            // {
+            //     name: "📊 Results",
+            //     value: [
+            //         `• **404**: ${result?.has_404 ? "❌ Found" : "✅ OK"}`,
+            //         `• **SEO**: ${result?.has_seo_issue ? "⚠️ Issues" : "✅ OK"}`,
+            //         `• **Duplicate**: ${result?.has_duplicate ? "⚠️ Found" : "✅ OK"}`,
+            //     ].join("\n"),
+            // },
         ],
     });
 }
