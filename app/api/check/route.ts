@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
             rawInput,
             source = "web",
             engineResult,
+            checks,
         } = body;
 
         // ===============================
@@ -47,6 +48,13 @@ export async function POST(req: NextRequest) {
         if (!Array.isArray(urls) || urls.length === 0) {
             return NextResponse.json(
                 { error: "URLs are required" },
+                { status: 400 }
+            );
+        }
+
+        if (!checks) {
+            return NextResponse.json(
+                { error: "checks is required" },
                 { status: 400 }
             );
         }

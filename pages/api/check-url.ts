@@ -61,10 +61,21 @@ export default async function handler(
   const isSingleUrl = normalizedUrls.length === 1;
 
   const normalizedChecks: Checks = {
-    check404: checks?.all ?? checks?.check404 ?? true,
-    duplicate: checks?.all ?? checks?.duplicate ?? true,
-    seo: checks?.all ?? checks?.seo ?? true,
+    check404: !!(checks?.all || checks?.check404),
+    duplicate: !!(checks?.all || checks?.duplicate),
+    seo: !!(checks?.all || checks?.seo),
   };
+
+  if (
+    !checks ||
+    (!checks.all && !checks.check404 && !checks.duplicate && !checks.seo)
+  ) {
+    return res.status(400).json({
+      error: true,
+      errorCode: "NO_CHECK_SELECTED",
+      errorMessage: "At least one check type is required",
+    });
+  }
 
   const batches = chunkArray(normalizedUrls, 10);
 
