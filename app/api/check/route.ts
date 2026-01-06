@@ -52,13 +52,6 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        if (!checks) {
-            return NextResponse.json(
-                { error: "checks is required" },
-                { status: 400 }
-            );
-        }
-
         if (!engineResult) {
             return NextResponse.json(
                 { error: "engineResult is required" },
