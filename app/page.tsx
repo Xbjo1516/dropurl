@@ -172,6 +172,19 @@ export default function Home() {
       }
     }
 
+    if (
+      mode === "single" &&
+      !checks.all &&
+      !checks.check404 &&
+      !checks.duplicate &&
+      !checks.seo
+    ) {
+      setError(t.home.errorMessage);
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
     if (mode === "crawl" && urls.length > 1) {
       setError(
         t.crawl.errorCrawlMultiUrl);
@@ -697,7 +710,7 @@ export default function Home() {
         <div className="w-full max-w-5xl mx-auto px-4 py-12">
           <div className="rounded-2xl shadow-xl border border-slate-200 bg-white p-6">
             <ResultTable rows={rows}
-            isCrawl={mode === "crawl"} />
+              isCrawl={mode === "crawl"} />
           </div>
         </div>
       )}

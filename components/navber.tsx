@@ -8,7 +8,10 @@ import { supabase } from "@/lib/supabaseClient"; // ✅ แก้ตรงนี
 import type { User } from "@supabase/supabase-js";
 import { syncCurrentUserProfile } from "@/lib/userProfile";
 
+import { useLang } from "@/components/Language/LanguageProvider";
+
 export function Navbar() {
+  const { t } = useLang();
   const [isScrolled, setIsScrolled] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -98,7 +101,7 @@ export function Navbar() {
                 {user.user_metadata?.full_name || "Logged in"}
               </span>
               <button onClick={logout} className="btn btn-sm btn-outline">
-                Logout
+                {t.navbar.logout}
               </button>
             </div>
           ) : (
@@ -106,7 +109,7 @@ export function Navbar() {
               onClick={loginWithDiscord}
               className="btn btn-sm btn-primary"
             >
-              Login with Discord
+              {t.navbar.login}
             </button>
           )}
         </div>
@@ -172,7 +175,7 @@ export function Navbar() {
                     onClick={logout}
                     className="btn btn-sm btn-outline w-full"
                   >
-                    Logout
+                    {t.navbar.logout}
                   </button>
                 </div>
               ) : (
@@ -180,7 +183,7 @@ export function Navbar() {
                   onClick={loginWithDiscord}
                   className="btn btn-sm btn-primary w-full"
                 >
-                  Login with Discord
+                  {t.navbar.login}
                 </button>
               )}
             </div>

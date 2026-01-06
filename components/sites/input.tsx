@@ -1,7 +1,7 @@
 "use client";
 
 import { useLang } from "@/components/Language/LanguageProvider";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useState, useEffect, useRef } from "react";
 
 export type Checks = {
   all: boolean;
@@ -48,21 +48,66 @@ export default function HeroSection({
   const [maxDepth, setMaxDepth] = useState(1);
   const [sameDomainOnly, setSameDomainOnly] = useState(true);
 
+  // ⭐ Pop counter states
+  const [popCount, setPopCount] = useState(0);
+  const [showPop, setShowPop] = useState(false);
+
+  const hideTimer = useRef<NodeJS.Timeout | null>(null);
+  const resetTimer = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    };
+  }, []);
+
+
   const syncAll = (next: Checks): Checks => ({
     ...next,
     all: next.check404 && next.duplicate && next.seo,
   });
+  const handlePopClick = () => {
+    setPopCount((c) => c + 1);
+    setShowPop(true);
+
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+
+    // หยุดกด → ซ่อนเลข
+    hideTimer.current = setTimeout(() => {
+      setShowPop(false);
+    }, 600);
+
+    // ครบ 30 วิ → รีเซ็ต
+    resetTimer.current = setTimeout(() => {
+      setPopCount(0);
+      setShowPop(false);
+    }, 30_000);
+  };
 
   return (
     <section className="relative bg-slate-900 text-white h-full flex flex-col justify-end items-center pb-16">
       {/* Header */}
       <div className="text-center px-4 my-8">
         <div className="flex-1">
-          <div className="btn btn-ghost normal-case text-6xl font-extrabold">
+          <button
+            type="button"
+            onClick={handlePopClick}
+            className="btn btn-ghost normal-case text-6xl font-extrabold select-none"
+          >
             <span className="text-primary">Drop</span>
-            <span className="ml-1">URL</span>
-          </div>
+
+            {showPop && (
+              <span className="mx-4 text-accent animate-pop text-5xl">
+                {popCount}
+              </span>
+            )}
+
+            <span>URL</span>
+          </button>
         </div>
+
         <h1 className="text-3xl md:text-4xl font-extrabold m-4">
           {t.home.title}
         </h1>

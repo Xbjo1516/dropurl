@@ -1,8 +1,10 @@
 const th = {
   navbar: {
     logo: "DURL Checker",
-    theme: "ธีม",
+    theme: "ธีม / สีของหน้า",
     language: "ภาษา",
+    logout: "ออกจากระบบ",
+    login: "เข้าสู่ระบบด้วย Discord",
   },
   home: {
     title: "ตรวจสอบและวิเคราะห์ลิงก์ URL",
@@ -17,7 +19,7 @@ const th = {
     errorDuplicate: "มีลิงก์ที่ซ้ำกันอยู่",
     errorNotFound: "ลิงก์ไม่ถูกต้องหรือไม่มีอยู่จริง",
     errorOther: "URL เกิดข้อผิดพลาด กรุณากรอกใหม่",
-    error: "กรุณากรอกอย่างน้อย 1 URL",
+    errorMessage: "เลือกประเภทการตรวจสอบอย่างน้อย 1 ประเภท",
   },
   result: {
     title: "ผลการตรวจสอบ",
