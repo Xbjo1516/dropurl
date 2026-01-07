@@ -289,42 +289,51 @@ export default function Home() {
         const dupResult = data.result?.duplicate;
         const seoResult = data.result?.seo;
 
-        // ========== 1) 404 ==========
+        // ========== 1) 404 (Page-first + show HTTP status) ==========
         if (
           checks.check404 &&
           check404Result?.results &&
           Array.isArray(check404Result.results)
         ) {
           check404Result.results.forEach((item: any, index: number) => {
-            const hasIssue =
-              item.pageStatus === 404 ||
-              (item.iframe404s && item.iframe404s.length > 0) ||
-              (item.assetFailures && item.assetFailures.length > 0);
-
             const problems: string[] = [];
+            let hasIssue = false;
+
+            // 1️⃣ หน้าเป็น 404 → จบ
             if (item.pageStatus === 404) {
-              problems.push("Main page returns 404.");
-            } else if (item.pageStatus === null) {
-              problems.push(
-                item.error
-                  ? `Fetch error: ${item.error}`
-                  : "No HTTP response (pageStatus=null)."
-              );
-            } else if (typeof item.pageStatus === "number") {
-              problems.push(`HTTP ${item.pageStatus}`);
-            } else {
-              problems.push("No HTTP response information.");
+              hasIssue = true;
+              problems.push("❌ This page returns HTTP 404 (page not found).");
             }
 
-            if (item.iframe404s?.length) {
-              problems.push(
-                `Found ${item.iframe404s.length} iframe(s) with 404 errors.`
-              );
-            }
-            if (item.assetFailures?.length) {
-              problems.push(
-                `Found ${item.assetFailures.length} asset(s) with 404 errors.`
-              );
+            // 2️⃣ หน้าไม่ 404
+            else {
+              // 2.1 fetch ไม่ได้
+              if (item.pageStatus === null) {
+                hasIssue = true;
+                problems.push(
+                  item.error
+                    ? `❌ Page fetch failed: ${item.error}`
+                    : "❌ No HTTP response from page."
+                );
+              } else {
+                // 2.2 หน้า OK → แสดง HTTP status
+                problems.push(`✅ Page returned HTTP ${item.pageStatus}.`);
+              }
+
+              // 2.3 ตรวจองค์ประกอบ (เฉพาะเมื่อหน้าไม่ตาย)
+              if (item.iframe404s?.length) {
+                hasIssue = true;
+                problems.push(
+                  `⚠ Found ${item.iframe404s.length} iframe(s) returning 404.`
+                );
+              }
+
+              if (item.assetFailures?.length) {
+                hasIssue = true;
+                problems.push(
+                  `⚠ Found ${item.assetFailures.length} asset(s) returning 404.`
+                );
+              }
             }
 
             newRows.push({
@@ -332,7 +341,7 @@ export default function Home() {
               url: item.url ?? url ?? "-",
               testType: "404",
               hasIssue,
-              issueSummary: problems.length ? problems.join(" | ") : "-",
+              issueSummary: problems.join(" | "),
             });
           });
         }

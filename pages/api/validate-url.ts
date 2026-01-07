@@ -29,14 +29,9 @@ export default async function handler(
 
     clearTimeout(timeout);
 
-    // ถือว่า 2xx–3xx = ใช้ได้
-    if (response.ok) {
-      return res.status(200).json({ ok: true });
-    }
-
+    // ✅ ยิงถึงแล้ว = ok (ไม่สน status)
     return res.status(200).json({
-      ok: false,
-      reason: "not_found",
+      ok: true,
       status: response.status,
     });
   } catch (err: any) {

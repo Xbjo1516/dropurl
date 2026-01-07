@@ -274,9 +274,10 @@ export default function ResultTable({
             </div>
           )}
 
-          <h2 className="text-sm font-semibold text-slate-700">
+          <h2 className="hidden md:block text-sm font-semibold text-slate-700">
             {t.result.title}
           </h2>
+
 
           {!isCrawl && (
             <div className="hidden sm:block ml-2">
