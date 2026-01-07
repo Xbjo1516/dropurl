@@ -16,8 +16,48 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://dropurl.vercel.app"),
+
   title: "DURL",
   description: "URL Link Verifying & SEO Audit System",
+
+  applicationName: "DURL",
+
+  alternates: {
+    canonical: "/",
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+  },
+
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
+
+  openGraph: {
+    type: "website",
+    siteName: "DURL",
+    title: "DURL",
+    description: "URL Link Verifying & SEO Audit System",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DURL – URL & SEO Audit",
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "DURL",
+    description: "URL Link Verifying & SEO Audit System",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({
