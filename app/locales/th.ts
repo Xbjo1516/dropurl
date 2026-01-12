@@ -35,11 +35,15 @@ const th = {
 
     selectedSummary: "เลือก {{selected}} / {{total}} รายการ",
 
-    filterLabel: "Filter",
-    filterAll: "All",
+    filterLabel: "ตัวเลือก",
+    filterstatus: "สถานะ",
+    noMatchData: "ไม่มีข้อมูลที่ตรงเงื่อนไขที่เลือกไว้",
+    filterAll: "ทั้งหมด",
     filter404: "404",
     filterDuplicate: "Duplicate",
     filterSeo: "SEO",
+    filterOK: "ปกติ",
+    filterHasIssue: "มีปัญหา",
 
     groupBasic: "Basic",
     groupIndexing: "Indexing",
