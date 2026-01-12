@@ -36,10 +36,14 @@ const en = {
     selectedSummary: "Selected {{selected}} / {{total}} rows",
 
     filterLabel: "Filter",
+    filterstatus: "Status",
+    noMatchData: "No matching data",
     filterAll: "All",
     filter404: "404",
     filterDuplicate: "Duplicate",
     filterSeo: "SEO",
+    filterOK: "no issues",
+    filterHasIssue: "has issues",
 
     groupBasic: "Basic",
     groupIndexing: "Indexing",
