@@ -126,6 +126,16 @@ export default function Home() {
 
     const urls = parseUrls(urlsInput);
 
+    // 🚫 จำกัดจำนวน URL สำหรับ single mode
+    if (mode === "single" && urls.length > 5) {
+      setError(
+        t.home.errorsingle
+      );
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
     // 1️⃣ ไม่กรอก URL
     if (!urls.length) {
       setError(t.home.errorRequired);
