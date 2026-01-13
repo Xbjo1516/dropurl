@@ -20,6 +20,7 @@ const en = {
     errorNotFound: "One or more links are not found or do not exist",
     errorOther: "An error occurred with the URL(s). Please try again.",
     errorMessage: "At least one check type is required",
+    errorsingle: "Single URL mode supports up to 5 URLs only",
   },
   result: {
     title: "Test results",
