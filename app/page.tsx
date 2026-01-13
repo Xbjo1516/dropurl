@@ -67,6 +67,14 @@ export default function Home() {
   const [showHelp, setShowHelp] = useState(false);
   const crawlTree = buildCrawlTree(crawlResults);
 
+  useEffect(() => {
+    // 🔄 เปลี่ยนโหมด = ล้างผลลัพธ์ทั้งหมด
+    setRows([]);
+    setCrawlResults([]);
+    setError(null);
+    setLoading(false);
+  }, [mode]);
+
   const parseUrls = (text: string): string[] =>
     text
       .split(/[\n,]+/)
