@@ -6,6 +6,9 @@ export async function notifyCheckCompleted(check_id: number) {
 
     const supabase = getSupabaseAdmin();
 
+    // ===============================
+    // 1️⃣ Fetch check
+    // ===============================
     const { data: check, error: checkError } = await supabase
         .from("checks")
         .select("id, source, urls")
@@ -17,31 +20,48 @@ export async function notifyCheckCompleted(check_id: number) {
         return;
     }
 
-    const { data: results } = await supabase
+    // ===============================
+    // 2️⃣ Fetch results (ใช้ schema จริง)
+    // ===============================
+    const { data: results, error: resultError } = await supabase
         .from("check_results")
-        .select("has_404, has_seo_issue, has_duplicate")
+        .select("has_404, has_seo_issues, has_duplicate")
         .eq("check_id", check_id);
+
+    if (resultError) {
+        console.error("[notifyCheckCompleted] failed to fetch results", resultError);
+        return;
+    }
 
     if (!results || results.length === 0) {
         console.warn("[notifyCheckCompleted] no results yet");
         return;
     }
 
+    // ===============================
+    // 3️⃣ Summarize results
+    // ===============================
     const summary = {
         has_404: results.some(r => r.has_404),
-        has_seo_issue: results.some(r => r.has_seo_issue),
+        has_seo_issues: results.some(r => r.has_seo_issues),
         has_duplicate: results.some(r => r.has_duplicate),
     };
 
+    // ===============================
+    // 4️⃣ Overall status
+    // ===============================
     const overallStatus =
         summary.has_404
             ? "🔴 Critical – 404 issues found"
-            : summary.has_seo_issue
+            : summary.has_seo_issues
                 ? "🟡 Needs Attention – SEO issues"
                 : summary.has_duplicate
                     ? "🟠 Minor Issues – Duplicate detected"
                     : "🟢 Healthy – No major issues";
 
+    // ===============================
+    // 5️⃣ Send Discord notification
+    // ===============================
     try {
         await sendDiscordMessage({
             title: "✅ DropURL – Check Completed",
