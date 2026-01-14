@@ -151,10 +151,10 @@ export async function POST(req: NextRequest) {
         console.log("🎉 /api/check SUCCESS");
 
         // ===============================
-        // 🔔 6️⃣ notify discord
+        // 🔔 6️⃣ notify discord (AFTER everything saved)
         // ===============================
         try {
-            void notifyCheckCompleted(check.id);
+            await notifyCheckCompleted(check.id);
         } catch (e) {
             console.error("Discord notify failed", e);
         }
