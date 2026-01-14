@@ -2,14 +2,13 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendDiscordMessage } from "@/lib/discord";
 
 export async function notifyCheckCompleted(check_id: number) {
+    console.log("🔔 notifyCheckCompleted called:", check_id);
+
     const supabase = getSupabaseAdmin();
 
-    // ===============================
-    // 🔍 Fetch check
-    // ===============================
     const { data: check, error: checkError } = await supabase
         .from("checks")
-        .select("id, source, urls, user_id")
+        .select("id, source, urls")
         .eq("id", check_id)
         .single();
 
@@ -18,67 +17,36 @@ export async function notifyCheckCompleted(check_id: number) {
         return;
     }
 
-    // ===============================
-    // 📊 Fetch result
-    // ===============================
-    const { data: result, error: resultError } = await supabase
+    const { data: results } = await supabase
         .from("check_results")
         .select("has_404, has_seo_issue, has_duplicate")
-        .eq("check_id", check_id)
-        .single();
+        .eq("check_id", check_id);
 
-    if (resultError || !result) {
-        console.error("[notifyCheckCompleted] result not found", resultError);
+    if (!results || results.length === 0) {
+        console.warn("[notifyCheckCompleted] no results yet");
         return;
     }
 
-    // ===============================
-    // 👤 Fetch user
-    // ===============================
-    const { data: user } = await supabase
-        .from("users")
-        .select("discord_username")
-        .eq("id", check.user_id)
-        .single();
+    const summary = {
+        has_404: results.some(r => r.has_404),
+        has_seo_issue: results.some(r => r.has_seo_issue),
+        has_duplicate: results.some(r => r.has_duplicate),
+    };
 
-    // ===============================
-    // 🧭 Overall status (priority-based)
-    // ===============================
-    const overallStatus = (() => {
-        if (result.has_404) {
-            return "🔴 Critical – 404 issues found";
-        }
-        if (result.has_seo_issue) {
-            return "🟡 Needs Attention – SEO issues";
-        }
-        if (result.has_duplicate) {
-            return "🟠 Minor Issues – Duplicate detected";
-        }
-        return "🟢 Healthy – No major issues";
-    })();
+    const overallStatus =
+        summary.has_404
+            ? "🔴 Critical – 404 issues found"
+            : summary.has_seo_issue
+                ? "🟡 Needs Attention – SEO issues"
+                : summary.has_duplicate
+                    ? "🟠 Minor Issues – Duplicate detected"
+                    : "🟢 Healthy – No major issues";
 
-    // ===============================
-    // 🌐 Source label
-    // ===============================
-    const sourceLabel =
-        check.source === "web"
-            ? "🌐 From Web"
-            : "🤖 From Discord";
-
-    // ===============================
-    // 📤 Send Discord notification
-    // ===============================
     try {
         await sendDiscordMessage({
             title: "✅ DropURL – Check Completed",
-            description: sourceLabel,
+            description: check.source === "web" ? "🌐 From Web" : "🤖 From Discord",
             fields: [
-                {
-                    name: "👤 User",
-                    value: user?.discord_username
-                        ? `@${user.discord_username}`
-                        : "Unknown user",
-                },
                 {
                     name: "🔗 URLs",
                     value: String(check.urls).slice(0, 700),
@@ -90,6 +58,6 @@ export async function notifyCheckCompleted(check_id: number) {
             ],
         });
     } catch (err) {
-        console.error("[notifyCheckCompleted] failed to send discord message", err);
+        console.error("[notifyCheckCompleted] discord send failed", err);
     }
 }
