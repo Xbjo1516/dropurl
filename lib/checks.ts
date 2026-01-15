@@ -71,6 +71,7 @@ export async function createCheck(params: {
 ======================= */
 export async function saveEngineResult(params: {
     check_id: number;
+    overall_status: string;
     has_404: boolean;
     has_duplicate: boolean;
     has_seo_issues: boolean;
@@ -85,6 +86,7 @@ export async function saveEngineResult(params: {
             check_id: params.check_id,
             result_type: "engine",
             status: params.status ?? "success",
+            overall_status: params.overall_status,
             has_404: params.has_404,
             has_duplicate: params.has_duplicate,
             has_seo_issues: params.has_seo_issues,
@@ -115,7 +117,7 @@ export async function saveAiResult(params: {
             result_type: "ai",
             status: params.status ?? "success",
             ai_summary: params.ai_summary,
-            raw_result_json:params.raw_result_json,
+            raw_result_json: params.raw_result_json,
         })
         .select()
         .single();

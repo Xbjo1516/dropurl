@@ -109,8 +109,19 @@ export async function POST(req: NextRequest) {
         // 4️⃣ save ENGINE result
         // ===============================
         if (source === "web") {
+            const overallStatus =
+                engineResult.overallStatus ??
+                (engineResult.has404
+                    ? "critical"
+                    : engineResult.hasDuplicate
+                        ? "minor"
+                        : engineResult.hasSeoIssues
+                            ? "seo"
+                            : "healthy");
+
             await saveEngineResult({
                 check_id: check.id,
+                overall_status: overallStatus,
                 has_404: engineResult.has404,
                 has_duplicate: engineResult.hasDuplicate,
                 has_seo_issues: engineResult.hasSeoIssues,
