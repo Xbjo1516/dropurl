@@ -53,10 +53,10 @@ export async function notifyCheckCompleted(check_id: number) {
     const overallStatus =
         summary.has_404
             ? "🔴 Critical – 404 issues found"
-            : summary.has_seo_issues
-                ? "🟡 Needs Attention – SEO issues"
-                : summary.has_duplicate
-                    ? "🟠 Minor Issues – Duplicate detected"
+            : summary.has_duplicate
+                ? "🟠 Minor Issues – Duplicate detected"
+                : summary.has_seo_issues
+                    ? "🟡 Needs Attention – SEO issues"
                     : "🟢 Healthy – No major issues";
 
     // ===============================
