@@ -106,10 +106,11 @@ export async function POST(req: NextRequest) {
         });
 
         // ===============================
-        // 4️⃣ save ENGINE result
+        // 4️⃣ save ENGINE result (ทั้ง web และ discord)
         // ===============================
-        if (source === "web") {
-            const overallStatus =
+        await saveEngineResult({
+            check_id: check.id,
+            overall_status:
                 engineResult.overallStatus ??
                 (engineResult.has404
                     ? "critical"
@@ -117,17 +118,12 @@ export async function POST(req: NextRequest) {
                         ? "minor"
                         : engineResult.hasSeoIssues
                             ? "seo"
-                            : "healthy");
-
-            await saveEngineResult({
-                check_id: check.id,
-                overall_status: overallStatus,
-                has_404: engineResult.has404,
-                has_duplicate: engineResult.hasDuplicate,
-                has_seo_issues: engineResult.hasSeoIssues,
-                raw_result_json: engineResult.raw ?? {},
-            });
-        }
+                            : "healthy"),
+            has_404: engineResult.has404,
+            has_duplicate: engineResult.hasDuplicate,
+            has_seo_issues: engineResult.hasSeoIssues,
+            raw_result_json: engineResult.raw ?? {},
+        });
 
         // ===============================
         // 5️⃣ generate + save AI result
