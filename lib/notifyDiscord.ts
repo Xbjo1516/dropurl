@@ -11,13 +11,38 @@ export async function notifyCheckCompleted(check_id: number) {
     // ===============================
     const { data: check, error: checkError } = await supabase
         .from("checks")
-        .select("id, source, urls")
+        .select("id, source, urls, user_id")
         .eq("id", check_id)
         .single();
 
     if (checkError || !check) {
         console.error("[notifyCheckCompleted] check not found", checkError);
         return;
+    }
+
+    // ===============================
+    // 1.5️⃣ Fetch user profile (optional)
+    // ===============================
+    let requestedBy = "Unknown";
+
+    try {
+        if (check.user_id) {
+            const { data: userProfile, error: userError } = await supabase
+                .from("profiles")
+                .select("username, full_name, email")
+                .eq("id", check.user_id)
+                .single();
+
+            if (!userError && userProfile) {
+                requestedBy =
+                    userProfile.full_name ||
+                    userProfile.username ||
+                    userProfile.email ||
+                    "Unknown";
+            }
+        }
+    } catch (err) {
+        console.warn("[notifyCheckCompleted] failed to fetch user profile", err);
     }
 
     // ===============================
@@ -42,22 +67,21 @@ export async function notifyCheckCompleted(check_id: number) {
     // 3️⃣ Summarize results
     // ===============================
     const summary = {
-        has_404: results.some(r => r.has_404),
-        has_seo_issues: results.some(r => r.has_seo_issues),
-        has_duplicate: results.some(r => r.has_duplicate),
+        has_404: results.some((r) => r.has_404),
+        has_seo_issues: results.some((r) => r.has_seo_issues),
+        has_duplicate: results.some((r) => r.has_duplicate),
     };
 
     // ===============================
     // 4️⃣ Overall status
     // ===============================
-    const overallStatus =
-        summary.has_404
-            ? "🔴 Critical – 404 issues found"
-            : summary.has_duplicate
-                ? "🟠 Minor Issues – Duplicate detected"
-                : summary.has_seo_issues
-                    ? "🟡 Needs Attention – SEO issues"
-                    : "🟢 Healthy – No major issues";
+    const overallStatus = summary.has_404
+        ? "🔴 Critical – 404 issues found"
+        : summary.has_duplicate
+            ? "🟠 Minor Issues – Duplicate detected"
+            : summary.has_seo_issues
+                ? "🟡 Needs Attention – SEO issues"
+                : "🟢 Healthy – No major issues";
 
     // ===============================
     // 5️⃣ Send Discord notification
@@ -67,6 +91,10 @@ export async function notifyCheckCompleted(check_id: number) {
             title: "✅ DropURL – Check Completed",
             description: check.source === "web" ? "🌐 From Web" : "🤖 From Discord",
             fields: [
+                {
+                    name: "👤 Requested by",
+                    value: requestedBy,
+                },
                 {
                     name: "🔗 URLs",
                     value: String(check.urls).slice(0, 700),
