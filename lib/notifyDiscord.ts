@@ -28,16 +28,14 @@ export async function notifyCheckCompleted(check_id: number) {
     try {
         if (check.user_id) {
             const { data: userProfile, error: userError } = await supabase
-                .from("profiles")
-                .select("username, full_name, email")
+                .from("users")
+                .select("discord_username")
                 .eq("id", check.user_id)
                 .single();
 
             if (!userError && userProfile) {
                 requestedBy =
-                    userProfile.full_name ||
-                    userProfile.username ||
-                    userProfile.email ||
+                    userProfile.discord_username ||
                     "Unknown";
             }
         }
