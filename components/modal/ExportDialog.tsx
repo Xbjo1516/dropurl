@@ -10,7 +10,7 @@ export type TestResultRow = {
   testType: string;
   hasIssue: boolean;
   issueSummary: string;
-  
+
   depth?: number;
 };
 
@@ -107,16 +107,82 @@ export default function ExportDialog({
         "application/json"
       );
     } else {
+      const COL_NO = 4;
+      const COL_URL = 32;
+      const COL_TYPE = 14;
+      const COL_STATUS = 8;
+      const COL_SUMMARY = 80;
+
+      const padRight = (s: string, w: number) => {
+        const t = String(s ?? "");
+        return t.length >= w ? t.slice(0, w - 1) + "…" : t.padEnd(w, " ");
+      };
+
+      const padLeft = (s: string, w: number) => {
+        const t = String(s ?? "");
+        return t.length >= w ? t.slice(0, w - 1) + "…" : t.padStart(w, " ");
+      };
+
+      const wrapText = (text: string, width: number) => {
+        const raw = String(text ?? "");
+        if (!raw) return [""];
+
+        const oneLine = raw.replace(/\r?\n/g, " ").trim();
+
+        const out: string[] = [];
+        let i = 0;
+
+        while (i < oneLine.length) {
+          if (i + width >= oneLine.length) {
+            out.push(oneLine.slice(i));
+            break;
+          }
+
+          let cut = oneLine.lastIndexOf(" ", i + width);
+          if (cut <= i) cut = i + width;
+          out.push(oneLine.slice(i, cut).trimEnd());
+          i = cut + 1;
+        }
+
+        return out;
+      };
+
       const headerLines = [
         `Exported at: ${exportedAtText}`,
         `Total items: ${exportRows.length}`,
         "",
-        "No.\tURL\tType\tStatus\tSummary",
+        `${padRight("No.", COL_NO)} ${padRight("URL", COL_URL)} ${padRight(
+          "Type",
+          COL_TYPE
+        )} ${padRight("Status", COL_STATUS)} ${padRight("Summary", COL_SUMMARY)}`,
+        `${"-".repeat(COL_NO)} ${"-".repeat(COL_URL)} ${"-".repeat(COL_TYPE)} ${"-".repeat(
+          COL_STATUS
+        )} ${"-".repeat(COL_SUMMARY)}`,
       ];
 
-      const lines = exportRows.map((r, index) => {
-        const status = r.hasIssue ? "ISSUE" : "OK";
-        return `${index + 1}\t${r.url}\t[${r.testType}]\t${status}\t${r.issueSummary}`;
+      const lines: string[] = [];
+
+      exportRows.forEach((r, index) => {
+        const no = padLeft(String(index + 1), COL_NO);
+        const url = padRight(r.url, COL_URL);
+        const type = padRight(`[${r.testType}]`, COL_TYPE);
+        const status = padRight(r.hasIssue ? "ISSUE" : "OK", COL_STATUS);
+
+        const summaryParts = wrapText(r.issueSummary, COL_SUMMARY);
+
+        // บรรทัดแรกของรายการ (มีทุกคอลัมน์)
+        lines.push(
+          `${no} ${url} ${type} ${status} ${padRight(summaryParts[0], COL_SUMMARY)}`
+        );
+
+        // บรรทัดถัดไป (เว้นช่อง No/URL/Type/Status ให้ summary ต่อท้ายแบบอยู่ในช่องเดิม)
+        for (let i = 1; i < summaryParts.length; i++) {
+          lines.push(
+            `${" ".repeat(COL_NO)} ${" ".repeat(COL_URL)} ${" ".repeat(COL_TYPE)} ${" ".repeat(
+              COL_STATUS
+            )} ${padRight(summaryParts[i], COL_SUMMARY)}`
+          );
+        }
       });
 
       const content = [...headerLines, ...lines].join("\n");
