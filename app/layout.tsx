@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Mali } from "next/font/google";
 import "./globals.css";
 
 import { Navbar } from "@/components/navber";
 import { LanguageProvider } from "@/components/Language/LanguageProvider";
+
+const mali = Mali({
+  variable: "--font-mali",
+  subsets: ["thai", "latin"],
+  weight: ["300", "400", "500", "600", "700"],
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -68,7 +74,15 @@ export default function RootLayout({
   return (
     <html lang="en" data-theme="nord">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-base-100 text-base-content`}
+        className={`
+    ${geistSans.variable}
+    ${geistMono.variable}
+    ${mali.variable}
+    font-mali
+    antialiased
+    bg-base-100
+    text-base-content
+  `}
       >
         <LanguageProvider>
           <Navbar />

@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-mali), cursive;
+  background-color: hsl(var(--b1));
+  color: hsl(var(--bc));
+  line-height: 1.6;
+}
